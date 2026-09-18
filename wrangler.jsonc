@@ -1,0 +1,40 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "miniblog",
+  "main": "server/index.tsx",
+  "compatibility_date": "2025-05-05",
+  "compatibility_flags": ["nodejs_compat"],
+  // 所有请求先进 Worker：/admin/* 转发 ASSETS（SPA），其余 SSR / API / 直链
+  "run_worker_first": true,
+  "assets": {
+    "directory": "./public/admin",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+  // ── standalone（默认）：自己的 D1/R2，自带完整认证 ─────────────────
+  "r2_buckets": [
+    { "binding": "R2", "bucket_name": "miniblog" }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "miniblog",
+      "database_id": "REPLACE_WITH_DATABASE_ID",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "DEPLOY_MODE": "standalone",
+    "APP_PUBLIC_URL": "https://b.<your-root-domain>",
+    "AUTH_RP_ID": "",
+    "AUTH_COOKIE_DOMAIN": "",
+    "DRIVER_PUBLIC_URL": "",
+    "ALLOWED_ORIGINS": ""
+  },
+  // ── linked（联动部署）：切换为与 minidriver 相同的库与桶 ───────────
+  // 1) r2_buckets.bucket_name → "minidriver"
+  // 2) d1_databases.database_name → "minidriver"，database_id → minidriver 的 ID
+  // 3) vars：DEPLOY_MODE=linked，AUTH_RP_ID/AUTH_COOKIE_DOMAIN=<根域>（L1），
+  //    DRIVER_PUBLIC_URL=https://f.<根域>，SESSION_ENC_KEY/SETUP_TOKEN 与 minidriver 同值
+  "observability": { "enabled": true }
+}

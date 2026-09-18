@@ -1,0 +1,25 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-bg: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-surface2: #f1f3f6;
+  --color-text: #17181c;
+  --color-muted: #667085;
+  --color-line: #e4e7ec;
+  --color-accent: #5b5bd6;
+  --color-accent-soft: #eeeefc;
+  --color-danger: #dc2626;
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.06), 0 1px 3px rgb(16 24 40 / 0.08);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-bg text-text antialiased;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+}

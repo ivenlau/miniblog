@@ -5,11 +5,11 @@
   "compatibility_date": "2025-05-05",
   "compatibility_flags": ["nodejs_compat"],
   // 所有请求先进 Worker：/admin/* 转发 ASSETS（SPA），其余 SSR / API / 直链
-  "run_worker_first": true,
+  "run_worker_first": ["/", "/admin/*", "/api/*", "/post/*", "/archive", "/tag/*", "/page/*", "/rss.xml", "/sitemap.xml", "/assets/*", "/themes/*"],
   "assets": {
-    "directory": "./public/admin",
+    "directory": "./public",
     "binding": "ASSETS",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "none"
   },
   // ── standalone（默认）：自己的 D1/R2，自带完整认证 ─────────────────
   "r2_buckets": [

@@ -338,6 +338,46 @@ async function main() {
     check('恢复码一次性', reuse.res.status === 401)
   }
 
+  // 博客文章：CRUD + 发布流 + SSR + 缓存
+  {
+    const created = await call('POST', '/api/posts', {
+      body: { title: 'Hello Miniblog', contentMd: '# 你好\n\n这是**第一篇**文章。', tags: ['随笔', 'test'], summary: '第一篇' },
+    })
+    check('新建文章（草稿）', created.res.status === 201 && created.json?.status === 'draft', JSON.stringify(created.json))
+    const postId = created.json?.id
+
+    const dup = await call('POST', '/api/posts', { body: { title: 'Hello Miniblog' } })
+    check('slug 自动去重', !!dup.json?.slug && dup.json.slug !== created.json?.slug)
+
+    const unauth = await call('POST', '/api/posts', { body: { title: 'x' }, cookie: false })
+    check('未登录建文 → 401', unauth.res.status === 401)
+
+    const updated = await call('PUT', `/api/posts/${postId}`, { body: { contentMd: '# 改过的正文' } })
+    check('更新文章', updated.res.status === 200 && updated.json?.contentMd === '# 改过的正文')
+
+    const pub = await call('POST', `/api/posts/${postId}/publish`)
+    check('发布', pub.res.status === 200)
+
+    const page = await fetch(`${BASE}/post/hello-miniblog`)
+    const html = await page.text()
+    check('公开页 SSR 渲染', page.status === 200 && html.includes('改过的正文') && html.includes('分钟阅读'), `status=${page.status}`)
+
+    const home = await fetch(`${BASE}/`)
+    check('首页列出文章', home.status === 200 && (await home.text()).includes('Hello Miniblog'))
+
+    const list = await call('GET', '/api/posts?status=published')
+    check('已发布列表', list.json?.items?.length === 1)
+
+    await call('PUT', `/api/posts/${postId}`, { body: { contentMd: '# 第二版' } })
+    check('保存后缓存已清除', (await (await fetch(`${BASE}/post/hello-miniblog`)).text()).includes('第二版'))
+
+    const unpub = await call('POST', `/api/posts/${postId}/unpublish`)
+    check('转草稿后公开页 404', unpub.res.status === 200 && (await fetch(`${BASE}/post/hello-miniblog`)).status === 404)
+
+    const del = await call('DELETE', `/api/posts/${postId}`)
+    check('删除文章', del.res.status === 200)
+  }
+
   // 设备列表
   {
     const sessions = await call('GET', '/api/auth/sessions')

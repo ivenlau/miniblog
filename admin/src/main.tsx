@@ -3,11 +3,14 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import './styles/admin.css'
 import App from './App'
+import { ToastProvider } from './state/toast'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <App />
+      <ToastProvider>
+        <App />
+      </ToastProvider>
     </BrowserRouter>
   </React.StrictMode>,
 )

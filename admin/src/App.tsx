@@ -5,6 +5,8 @@ import { Cloud, Copy, Fingerprint, KeyRound } from 'lucide-react'
 import { ApiError, api } from './lib/api'
 import { browserSupportsWebAuthn, loginWithPasskey, setupPasskey } from './lib/passkey'
 import { Button, Input, Spinner } from './components/ui'
+import { PostsPage } from './pages/PostsPage'
+import { EditorPage } from './pages/EditorPage'
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
@@ -234,8 +236,16 @@ function Dashboard() {
           退出
         </Button>
       </div>
-      <div className="rounded-2xl border border-line bg-surface p-8 text-center text-sm text-muted">
-        写作与站点管理将在 M1 到位 —— 当前为 M0 认证骨架验证。
+      <div className="rounded-2xl border border-line bg-surface p-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-medium">文章管理</h2>
+            <p className="mt-1 text-[13px] text-muted">写作、发布、标签与归档</p>
+          </div>
+          <Button variant="primary" size="sm" onClick={() => navigate('/admin/posts')}>
+            打开
+          </Button>
+        </div>
       </div>
     </div>
   )
@@ -265,7 +275,10 @@ function AdminRoutes() {
   if (!data.me) return <Navigate to="/admin/login" state={{ from: location.pathname }} replace />
   return (
     <Routes location={location}>
-      <Route path="/admin" element={<Dashboard />} />
+      <Route index element={<Dashboard />} />
+      <Route path="posts" element={<PostsPage />} />
+      <Route path="posts/new" element={<EditorPage />} />
+      <Route path="posts/:id" element={<EditorPage />} />
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>
   )

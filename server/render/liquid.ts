@@ -32,7 +32,8 @@ function engineFor(env: AppEnv['Bindings'], themeId: string): Liquid {
       return dir ? `${dir}/${filePatch}` : filePatch
     },
   } as unknown as FS
-  const engine = new Liquid({ jsTruthy: true, fs })
+  // relativeReference 依赖 fs.dirname/fs.sep（Workers 环境没有），显式关闭以消除启动警告
+  const engine = new Liquid({ jsTruthy: true, relativeReference: false, fs })
   engines.set(themeId, engine)
   return engine
 }

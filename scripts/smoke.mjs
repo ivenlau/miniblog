@@ -327,7 +327,9 @@ async function main() {
     check('密码登录 → 需要 TOTP', step1.json?.needTotp === true, JSON.stringify(step1.json))
     await call('POST', '/api/auth/logout')
     await call('POST', '/api/auth/password/login', { body: { password: 'testpass123' } })
-    const verify = await call('POST', '/api/auth/totp/verify', { body: { code: computeTotp(totpSetup.json.secret, Date.now() + 31000) } })
+    // 显式取「下一个 30s 窗口」的时间戳：Date.now()+31000 在窗口末尾会跨两窗（服务端 ±1 容差外）导致偶发 BAD_CODE
+    const nextStepAt = (Math.floor(Date.now() / 30_000) + 1) * 30_000
+    const verify = await call('POST', '/api/auth/totp/verify', { body: { code: computeTotp(totpSetup.json.secret, nextStepAt) } })
     check('TOTP 验证登录', verify.res.status === 200, JSON.stringify(verify.json))
   }
 

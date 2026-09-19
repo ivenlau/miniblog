@@ -16,7 +16,14 @@ function base64urlDecodeOrB64(s: string): Uint8Array {
   try {
     return base64urlDecode(s)
   } catch {
-    const bin = atob(s)
+    let bin: string
+    try {
+      bin = atob(s)
+    } catch {
+      throw new Error(
+        '会话密钥（SESSION_ENC_KEY）不是有效的 base64。请在 .dev.vars（本地）或 Worker Secrets（线上）中设置为 `node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'base64\'))"` 的输出',
+      )
+    }
     const out = new Uint8Array(bin.length)
     for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
     return out

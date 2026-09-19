@@ -40,14 +40,16 @@ await page.screenshot({ path: '/tmp/mb-shots/00-setup-recovery.png' })
 await page.getByRole('button', { name: /完成|Done/ }).click()
 await page.waitForURL('**/admin/', { timeout: 15000 }).catch(() => {})
 
-// ---- 准备一篇已发布文章（走 API，共享 context 会话）----
+// ---- 准备一篇已发布文章 + 关于页 + 自定义导航（走 API，共享 context 会话）----
+const H = { 'x-miniblog': '1', 'content-type': 'application/json' }
 const pub = await context.request.post(`${BASE}/api/posts`, {
-  headers: { 'x-miniblog': '1', 'content-type': 'application/json' },
+  headers: H,
   data: {
     title: '你好 Miniblog',
     slug: 'hello-miniblog',
     summary: '第一篇文章',
-    contentMd: '# 你好\n\n这是**第一篇**文章。\n\n## 小标题\n\n- 列表项一\n- 列表项二\n\n> 引用\n\n```js\nconsole.log(1)\n```\n\n$$E=mc^2$$',
+    contentMd:
+      '# 你好\n\n这是**第一篇**文章，这里有一个[示例链接](https://example.com)。\n\n## 小标题\n\n- 列表项一\n- 列表项二\n\n> 引用\n\n```js\nconsole.log(1)\n```\n\n$$E=mc^2$$',
     tags: ['随笔'],
   },
 })
@@ -56,6 +58,32 @@ if (pub.status() === 201) {
   await context.request.post(`${BASE}/api/posts/${id}/publish`, { headers: { 'x-miniblog': '1' } })
   console.log('✓ 测试文章已发布')
 }
+await context.request.put(`${BASE}/api/pages/about`, {
+  headers: H,
+  data: {
+    title: '关于本站',
+    contentMd:
+      '# 关于本站\n\n这是**关于页**，支持 [链接](https://example.com) 与列表：\n\n- 第一条\n- 第二条\n\n> 引用一句',
+  },
+})
+await context.request.put(`${BASE}/api/settings`, {
+  headers: H,
+  data: {
+    site: {
+      name: '我的小站',
+      description: '一个跑在 Workers 上的博客',
+      footer: '',
+      nav: [
+        { label: '首页', href: '/' },
+        { label: '归档', href: '/archive' },
+        { label: '标签', href: '/tags' },
+        { label: '关于', href: '/page/about' },
+        { label: 'GitHub', href: 'https://github.com' },
+      ],
+    },
+  },
+})
+console.log('✓ 关于页 + 自定义导航已配置')
 
 const shots = async (list) => {
   for (const { url, name, full } of list) {
@@ -91,6 +119,7 @@ await shots([
   { url: '/post/hello-miniblog', name: '11-post' },
   { url: '/tags', name: '12-tags' },
   { url: '/archive', name: '13-archive' },
+  { url: '/page/about', name: '14-about' },
 ])
 
 const mobile = await context.newPage()

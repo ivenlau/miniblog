@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Link2, Plus, Save, Trash2 } from 'lucide-react'
 import { ApiError, api } from '../../lib/api'
 import type { NavItem, PageDto, SiteSettings } from '../../lib/types'
+import { MarkdownField } from '../../components/MarkdownField'
 import { Button, Input, Spinner } from '../../components/ui'
 import { useToast } from '../../state/toast'
 
@@ -99,22 +100,24 @@ export function BlogSection() {
           <p className="mt-1 text-[12px] leading-relaxed text-muted">{t('settings.blog.navLinksHint')}</p>
           <div className="mt-3 space-y-2">
             {nav.map((item, i) => (
-              <div key={i} className="flex items-center gap-2">
+              <div key={i} className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <Input
-                  className="w-32 shrink-0"
+                  className="w-full shrink-0 sm:w-36"
                   placeholder={t('settings.blog.navLabel')}
                   value={item.label}
                   onChange={(e) => setNav(nav.map((n, j) => (j === i ? { ...n, label: e.target.value } : n)))}
                 />
-                <Input
-                  placeholder={t('settings.blog.navHref')}
-                  value={item.href}
-                  onChange={(e) => setNav(nav.map((n, j) => (j === i ? { ...n, href: e.target.value } : n)))}
-                />
+                <div className="min-w-0 flex-1">
+                  <Input
+                    placeholder={t('settings.blog.navHref')}
+                    value={item.href}
+                    onChange={(e) => setNav(nav.map((n, j) => (j === i ? { ...n, href: e.target.value } : n)))}
+                  />
+                </div>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="shrink-0 text-danger"
+                  className="shrink-0 self-end text-danger sm:self-center"
                   onClick={() => setNav(nav.filter((_, j) => j !== i))}
                 >
                   <Trash2 size={14} />
@@ -145,12 +148,11 @@ export function BlogSection() {
             value={about.title}
             onChange={(e) => setAbout({ ...about, title: e.target.value })}
           />
-          <textarea
-            placeholder="Markdown…"
+          {/* 与文章编辑器同款：工具栏 + 服务端同管线实时预览（公开站 /page/about 用 markdown-it 渲染） */}
+          <MarkdownField
             value={about.contentMd}
-            onChange={(e) => setAbout({ ...about, contentMd: e.target.value })}
-            spellCheck={false}
-            className="h-56 w-full resize-none rounded-xl border border-line bg-surface p-4 font-mono text-[13px] leading-relaxed text-text outline-none focus:border-accent"
+            onChange={(contentMd) => setAbout({ ...about, contentMd })}
+            placeholder="Markdown…"
           />
         </div>
         <div className="mt-4 flex justify-end">

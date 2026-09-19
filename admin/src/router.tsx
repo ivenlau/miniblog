@@ -6,6 +6,9 @@ import { LoginPage } from './pages/LoginPage'
 import { SetupPage } from './pages/SetupPage'
 import { PostsPage } from './pages/PostsPage'
 import { EditorPage } from './pages/editor/EditorPage'
+import { BlogSettingsPage } from './pages/BlogSettingsPage'
+import { ThemeSettingsPage } from './pages/ThemeSettingsPage'
+import { PluginsPage } from './pages/PluginsPage'
 import { SettingsPage } from './pages/settings/SettingsPage'
 
 /**
@@ -24,9 +27,10 @@ export const router = createBrowserRouter(
         { path: 'posts', element: <PostsPage /> },
         { path: 'posts/new', element: <EditorPage /> },
         { path: 'posts/:id', element: <EditorPage /> },
+        { path: 'blog', element: <BlogSettingsPage /> },
+        { path: 'theme', element: <ThemeSettingsPage /> },
+        { path: 'plugins', element: <PluginsPage /> },
         { path: 'settings', element: <SettingsPage /> },
-        // 兼容旧路径（/admin/plugins → 设置的插件标签页）
-        { path: 'plugins', element: <Navigate to="/settings?tab=plugins" replace /> },
         { path: '*', element: <Navigate to="/" replace /> },
       ],
     },

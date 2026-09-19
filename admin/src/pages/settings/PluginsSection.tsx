@@ -14,9 +14,9 @@ const DEFS = [
   { id: 'toc', nameKey: 'plugins.items.toc.name', descKey: 'plugins.items.toc.desc', config: [] as string[] },
   { id: 'highlight', nameKey: 'plugins.items.highlight.name', descKey: 'plugins.items.highlight.desc', config: ['theme'] },
   { id: 'lightbox', nameKey: 'plugins.items.lightbox.name', descKey: 'plugins.items.lightbox.desc', config: [] as string[] },
-  { id: 'katex', nameKey: 'plugins.items.katex.name', descKey: 'plugins.items.katex.desc', config: [] as string[] },
+  { id: 'katex', nameKey: 'plugins.items.katex.name', descKey: 'plugins.items.katex.desc', config: ['cdn'] },
   { id: 'giscus', nameKey: 'plugins.items.giscus.name', descKey: 'plugins.items.giscus.desc', config: ['repo', 'repoId', 'category', 'categoryId'] },
-  { id: 'footer-links', nameKey: 'plugins.items.footer-links.name', descKey: 'plugins.items.footer-links.desc', config: [] as string[] },
+  { id: 'footer-links', nameKey: 'plugins.items.footer-links.name', descKey: 'plugins.items.footer-links.desc', config: ['links'] },
 ] as const
 
 /** 插件：声明式启停 + 配置（写 blog_settings.plugins，公开站即时生效） */
@@ -65,8 +65,7 @@ export function PluginsSection() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <p className="text-[13px] text-muted">{t('plugins.hint')}</p>
+      <div className="mb-4 flex items-center justify-end">
         <Button variant="primary" size="sm" disabled={!dirty} onClick={() => void save()}>
           {t('plugins.save')}
         </Button>

@@ -15,7 +15,8 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "resolveJsonModule": true,
-    "noEmit": true
+    "noEmit": true,
+  "allowImportingTsExtensions": true
   },
   "include": ["admin/src/**/*.ts", "admin/src/**/*.tsx", "admin/vite-env.d.ts"]
 }

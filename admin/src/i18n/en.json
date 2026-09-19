@@ -24,7 +24,10 @@
     "newPost": "New post",
     "write": "Write",
     "settings": "Settings",
-    "viewSite": "View site"
+    "viewSite": "View site",
+    "blog": "Blog",
+    "theme": "Theme",
+    "plugins": "Plugins"
   },
   "auth": {
     "loginTitle": "Sign in to Miniblog",
@@ -140,7 +143,7 @@
     "words_other": "{{count}} words"
   },
   "settings": {
-    "sectionSecurity": "Account & security",
+    "sectionSecurity": "Security",
     "sectionBlog": "Blog",
     "sectionTheme": "Theme",
     "sectionAppearance": "Appearance",
@@ -225,7 +228,30 @@
       "fontSans": "Sans-serif",
       "fontSerif": "Serif",
       "save": "Save theme",
-      "saved": "Theme saved — live on the public site"
+      "saved": "Theme saved — live on the public site",
+      "livePreview": "Live preview",
+      "deviceDesktop": "Desktop",
+      "deviceMobile": "Mobile",
+      "customize": "Customize",
+      "customized": "Customized",
+      "reset": "Reset to theme defaults",
+      "accentCustom": "Custom color",
+      "accentDefault": "Follow theme default",
+      "radiusLabel": "Corner radius",
+      "radiusNone": "None",
+      "radiusSmall": "Small",
+      "radiusMedium": "Medium",
+      "radiusLarge": "Large",
+      "radiusFull": "Round",
+      "widthLabel": "Content width",
+      "widthNarrow": "Narrow",
+      "widthMedium": "Medium",
+      "widthWide": "Wide",
+      "fontSizeLabel": "Body font size",
+      "fontSizeSmall": "Small",
+      "fontSizeStandard": "Standard",
+      "fontSizeLarge": "Large",
+      "openSite": "Open site to see it live"
     },
     "appearance": {
       "appTheme": "Admin appearance",
@@ -238,13 +264,34 @@
     "saved": "Plugins saved — live on the public site",
     "hint": "Plugins render in order at their mount points on the public site.",
     "items": {
-      "reading-time": { "name": "Reading time", "desc": "Estimated reading time in the post meta bar" },
-      "toc": { "name": "Table of contents", "desc": "Heading TOC at the top of posts" },
-      "highlight": { "name": "Code highlight", "desc": "Client-side highlighting via highlight.js" },
-      "lightbox": { "name": "Lightbox", "desc": "Click images to zoom (reserved)" },
-      "katex": { "name": "Math (KaTeX)", "desc": "KaTeX rendering (reserved)" },
-      "giscus": { "name": "giscus comments", "desc": "Powered by GitHub Discussions" },
-      "footer-links": { "name": "Footer links", "desc": "Custom footer links (reserved)" }
+      "reading-time": {
+        "name": "Reading time",
+        "desc": "Estimated reading time in the post meta bar"
+      },
+      "toc": {
+        "name": "Table of contents",
+        "desc": "Heading TOC at the top of posts"
+      },
+      "highlight": {
+        "name": "Code highlight",
+        "desc": "Client-side highlighting via highlight.js"
+      },
+      "lightbox": {
+        "name": "Lightbox",
+        "desc": "Click post images to view fullscreen"
+      },
+      "katex": {
+        "name": "Math (KaTeX)",
+        "desc": "Math via KaTeX: $$…$$ and \\(…\\), custom CDN optional"
+      },
+      "giscus": {
+        "name": "giscus comments",
+        "desc": "Powered by GitHub Discussions"
+      },
+      "footer-links": {
+        "name": "Footer links",
+        "desc": "Custom footer links, format: Label|URL separated by semicolons"
+      }
     }
   },
   "errors": {

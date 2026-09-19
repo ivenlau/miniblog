@@ -24,7 +24,10 @@
     "newPost": "新建文章",
     "write": "写作",
     "settings": "设置",
-    "viewSite": "查看站点"
+    "viewSite": "查看站点",
+    "blog": "博客",
+    "theme": "主题",
+    "plugins": "插件"
   },
   "auth": {
     "loginTitle": "登录 Miniblog",
@@ -137,7 +140,7 @@
     "words_other": "{{count}} 字"
   },
   "settings": {
-    "sectionSecurity": "账户与安全",
+    "sectionSecurity": "安全",
     "sectionBlog": "博客",
     "sectionTheme": "主题",
     "sectionAppearance": "外观",
@@ -221,7 +224,30 @@
       "fontSans": "无衬线",
       "fontSerif": "衬线",
       "save": "保存主题",
-      "saved": "主题已保存，公开页即刻生效"
+      "saved": "主题已保存，公开页即刻生效",
+      "livePreview": "实时预览",
+      "deviceDesktop": "桌面",
+      "deviceMobile": "移动",
+      "customize": "定制",
+      "customized": "已自定义",
+      "reset": "恢复此主题默认",
+      "accentCustom": "自定义颜色",
+      "accentDefault": "跟随主题默认",
+      "radiusLabel": "圆角",
+      "radiusNone": "直角",
+      "radiusSmall": "小",
+      "radiusMedium": "中",
+      "radiusLarge": "大",
+      "radiusFull": "全圆",
+      "widthLabel": "版心宽度",
+      "widthNarrow": "窄",
+      "widthMedium": "适中",
+      "widthWide": "宽",
+      "fontSizeLabel": "正文字号",
+      "fontSizeSmall": "小",
+      "fontSizeStandard": "标准",
+      "fontSizeLarge": "大",
+      "openSite": "打开站点查看效果"
     },
     "appearance": {
       "appTheme": "后台外观",
@@ -234,13 +260,34 @@
     "saved": "插件配置已保存，公开页即刻生效",
     "hint": "插件按顺序在公开站的对应挂载点渲染。",
     "items": {
-      "reading-time": { "name": "阅读时长", "desc": "文章元信息条显示预计阅读时间" },
-      "toc": { "name": "目录", "desc": "文首生成标题目录" },
-      "highlight": { "name": "代码高亮", "desc": "highlight.js 客户端高亮" },
-      "lightbox": { "name": "图片灯箱", "desc": "点击图片放大（预留）" },
-      "katex": { "name": "数学公式", "desc": "KaTeX 渲染（预留）" },
-      "giscus": { "name": "giscus 评论", "desc": "基于 GitHub Discussions" },
-      "footer-links": { "name": "页脚链接", "desc": "页脚自定义链接（预留）" }
+      "reading-time": {
+        "name": "阅读时长",
+        "desc": "文章元信息条显示预计阅读时间"
+      },
+      "toc": {
+        "name": "目录",
+        "desc": "文首生成标题目录"
+      },
+      "highlight": {
+        "name": "代码高亮",
+        "desc": "highlight.js 客户端高亮"
+      },
+      "lightbox": {
+        "name": "图片灯箱",
+        "desc": "点击文章图片放大浏览"
+      },
+      "katex": {
+        "name": "数学公式（KaTeX）",
+        "desc": "数学公式渲染：$$…$$ 与 \\(…\\)，可选自建 CDN"
+      },
+      "giscus": {
+        "name": "giscus 评论",
+        "desc": "基于 GitHub Discussions"
+      },
+      "footer-links": {
+        "name": "页脚链接",
+        "desc": "页脚自定义链接，格式：名称|链接，分号分隔"
+      }
     }
   },
   "errors": {

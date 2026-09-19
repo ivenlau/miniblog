@@ -1,28 +1,33 @@
-import { useSearchParams } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Globe2, Palette, PencilRuler, ShieldCheck, Sparkles } from 'lucide-react'
+import { Palette, ShieldCheck } from 'lucide-react'
 import { useAdminShell } from '../../layout/AdminShell'
 import { SecuritySection } from './SecuritySection'
-import { BlogSection } from './BlogSection'
-import { ThemeSection } from './ThemeSection'
 import { AppearanceSection } from './AppearanceSection'
-import { PluginsSection } from './PluginsSection'
 import { cn } from '../../components/ui'
 
-export type SettingsTab = 'security' | 'blog' | 'theme' | 'appearance' | 'plugins'
+type SettingsTab = 'security' | 'appearance'
 
-/** 设置页：标签页走 URL（?tab=），刷新/后退可用 */
+/** 旧设置标签页 → 新顶级路由（/blog /theme /plugins） */
+const LEGACY_TAB_REDIRECT: Record<string, string> = {
+  blog: '/blog',
+  theme: '/theme',
+  plugins: '/plugins',
+}
+
+/** 设置页：账户安全 + 后台外观（博客/主题/插件已提升为顶级页面） */
 export function SettingsPage() {
   const { t } = useTranslation()
   const [params, setParams] = useSearchParams()
+  const legacy = params.get('tab')
+  if (legacy && legacy in LEGACY_TAB_REDIRECT) {
+    return <Navigate to={LEGACY_TAB_REDIRECT[legacy]!} replace />
+  }
   const tab = (params.get('tab') as SettingsTab | null) ?? 'security'
 
   const tabs: { key: SettingsTab; label: string; icon: typeof ShieldCheck }[] = [
     { key: 'security', label: t('settings.sectionSecurity'), icon: ShieldCheck },
-    { key: 'blog', label: t('settings.sectionBlog'), icon: Globe2 },
-    { key: 'theme', label: t('settings.sectionTheme'), icon: PencilRuler },
     { key: 'appearance', label: t('settings.sectionAppearance'), icon: Palette },
-    { key: 'plugins', label: t('settings.sectionPlugins'), icon: Sparkles },
   ]
 
   return (
@@ -45,10 +50,7 @@ export function SettingsPage() {
       </nav>
       <div className="min-w-0 flex-1">
         {tab === 'security' && <SecuritySection />}
-        {tab === 'blog' && <BlogSection />}
-        {tab === 'theme' && <ThemeSection />}
         {tab === 'appearance' && <AppearanceSection />}
-        {tab === 'plugins' && <PluginsSection />}
       </div>
     </div>
   )

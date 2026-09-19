@@ -1,12 +1,12 @@
 import { Navigate, NavLink, Outlet, useLocation, useNavigate, useOutletContext } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ExternalLink, FileText, LayoutDashboard, LogOut, Plus, Settings, UserRound } from 'lucide-react'
+import { ExternalLink, FileText, Globe2, LayoutDashboard, LogOut, PencilRuler, Settings, Sparkles, UserRound } from 'lucide-react'
 import { api } from '../lib/api'
 import { useBootstrap } from '../state/auth'
 import type { Bootstrap, Me } from '../lib/types'
 import { formatNumber } from '../lib/format'
-import { Button, Dropdown, Splash, cn } from '../components/ui'
+import { Dropdown, Splash, cn } from '../components/ui'
 import { LangToggle, ThemeToggle } from '../components/ThemeLang'
 import { Logo } from '../components/Logo'
 
@@ -20,15 +20,13 @@ export function useAdminShell(): AdminShellContext {
   return useOutletContext<AdminShellContext>()
 }
 
+/** 主菜单：概览 / 文章 / 博客 / 主题 / 插件（桌面侧栏与移动底部导航共用） */
 const NAV = [
   { to: '/', icon: LayoutDashboard, key: 'nav.dashboard', end: true },
   { to: '/posts', icon: FileText, key: 'nav.posts', end: false },
-  { to: '/settings', icon: Settings, key: 'nav.settings', end: false },
-] as const
-
-const MOBILE_NAV = [
-  { to: '/', icon: LayoutDashboard, key: 'nav.dashboard', end: true },
-  { to: '/posts', icon: FileText, key: 'nav.posts', end: false },
+  { to: '/blog', icon: Globe2, key: 'nav.blog', end: false },
+  { to: '/theme', icon: PencilRuler, key: 'nav.theme', end: false },
+  { to: '/plugins', icon: Sparkles, key: 'nav.plugins', end: false },
 ] as const
 
 /** 布局路由：鉴权守卫 + 壳。me/deployMode 通过 Outlet context 下发 */
@@ -72,7 +70,7 @@ function ShellInner({ me, deployMode }: { me: Me; deployMode: Bootstrap['deployM
           <Logo size={32} />
           <span className="text-[15px] font-semibold tracking-tight">{t('common.appName')}</span>
         </div>
-        <nav className="mt-2 space-y-0.5 px-3">
+        <nav className="mt-2 flex-1 space-y-0.5 px-3">
           {NAV.map(({ to, icon: Icon, key, end }) => (
             <NavLink key={to} to={to} end={end} className={navLinkCls}>
               <Icon size={18} />
@@ -80,22 +78,7 @@ function ShellInner({ me, deployMode }: { me: Me; deployMode: Bootstrap['deployM
             </NavLink>
           ))}
         </nav>
-        <div className="mt-4 space-y-2 px-3">
-          <Button variant="primary" className="w-full justify-center" onClick={() => navigate('/posts/new')}>
-            <Plus size={16} />
-            {t('nav.newPost')}
-          </Button>
-          <a
-            href="/"
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-sm text-muted transition-colors hover:bg-surface2 hover:text-text"
-          >
-            <ExternalLink size={15} />
-            {t('nav.viewSite')}
-          </a>
-        </div>
-        <div className="mt-auto px-3 pb-3">
+        <div className="px-3 pb-3">
           <BlogMeter />
         </div>
       </aside>
@@ -132,33 +115,14 @@ function ShellInner({ me, deployMode }: { me: Me; deployMode: Bootstrap['deployM
           <Outlet context={{ me, deployMode, signOut } satisfies AdminShellContext} />
         </main>
 
-        {/* 底部导航（移动）：中央为「写作」 */}
+        {/* 底部导航（移动）：与主菜单一致 */}
         <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
-          {MOBILE_NAV.map(({ to, icon: Icon, key, end }) => (
+          {NAV.map(({ to, icon: Icon, key, end }) => (
             <NavLink key={to} to={to} end={end} className={bottomLinkCls}>
               <Icon size={21} />
               {t(key)}
             </NavLink>
           ))}
-          <NavLink to="/posts/new" className="flex h-16 flex-col items-center justify-center gap-1 text-[11px] text-muted">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-white shadow-card">
-              <Plus size={19} />
-            </span>
-            {t('nav.write')}
-          </NavLink>
-          <NavLink to="/settings" end={false} className={bottomLinkCls}>
-            <Settings size={21} />
-            {t('nav.settings')}
-          </NavLink>
-          <a
-            href="/"
-            target="_blank"
-            rel="noreferrer"
-            className="flex h-16 flex-col items-center justify-center gap-1 text-[11px] text-muted"
-          >
-            <ExternalLink size={21} />
-            {t('nav.viewSite')}
-          </a>
         </nav>
       </div>
     </div>

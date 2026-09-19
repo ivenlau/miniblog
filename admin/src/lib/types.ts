@@ -63,7 +63,7 @@ export type SiteSettings = { name: string; description: string; footer: string; 
 export type ThemeSettings = {
   mode: 'builtin'
   id: string
-  tokens: { accent?: string; radius?: number; width?: number; font?: 'sans' | 'serif' }
+  tokens: { accent?: string; radius?: number; width?: number; font?: 'sans' | 'serif'; fontSize?: number }
 }
 
 /** blog_settings.plugins */

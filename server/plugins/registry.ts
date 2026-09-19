@@ -48,6 +48,50 @@ export const PLUGIN_DEFS: PluginDef[] = [
     },
   },
   {
+    id: 'lightbox',
+    name: '图片灯箱',
+    mount: 'head',
+    render: () => `<style>.mb-lightbox{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.88);cursor:zoom-out}.mb-lightbox img{max-width:92vw;max-height:92vh;border-radius:6px}.mb-lightbox.on{display:flex}</style><script>(function(){var d=document.createElement('div');d.className='mb-lightbox';d.innerHTML='<img alt="">';document.addEventListener('DOMContentLoaded',function(){document.body.appendChild(d);var im=d.querySelector('img');document.addEventListener('click',function(e){var t=e.target;if(t&&t.tagName==='IMG'&&!d.contains(t)&&t.closest('article,.post')){im.src=t.currentSrc||t.src;d.classList.add('on')}else if(d.classList.contains('on')){d.classList.remove('on');im.src=''}});document.addEventListener('keydown',function(e){if(e.key==='Escape'){d.classList.remove('on');im.src=''}})})})()</script>`,
+  },
+  {
+    id: 'katex',
+    name: '数学公式',
+    mount: 'head',
+    render: (ctx) => {
+      // 允许自建/镜像 CDN；默认 jsdelivr。仅渲染 $$…$$ 与 \(…\)/\[…\]，避免单个 $ 误判
+      const cdn = ((ctx.config?.cdn as string) || 'https://cdn.jsdelivr.net/npm/katex@0.16.22').replace(/\/$/, '')
+      if (!/^https?:\/\//.test(cdn)) return ''
+      return `<link rel="stylesheet" href="${escAttr(cdn)}/katex.min.css"><script defer src="${escAttr(cdn)}/katex.min.js"></script><script defer src="${escAttr(cdn)}/contrib/auto-render.min.js"></script><script>window.addEventListener('DOMContentLoaded',function(){function go(){if(!window.renderMathInElement)return;window.renderMathInElement(document.querySelector('article,main')||document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\\\(',right:'\\\\)',display:false},{left:'\\\\[',right:'\\\\]',display:true}],throwOnError:false})}window.katex?go():document.querySelector('script[src$="katex.min.js"]')?.addEventListener('load',go)})</script>`
+    },
+  },
+  {
+    id: 'footer-links',
+    name: '页脚链接',
+    mount: 'footer',
+    render: (ctx) => {
+      // 配置格式：`名称|https://链接;名称2|https://链接2`（分号分隔项，竖线分隔名称与链接）
+      const raw = (ctx.config?.links as string) ?? ''
+      const items = raw
+        .split(/[;；]/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map((item) => {
+          const idx = item.indexOf('|')
+          if (idx <= 0) return null
+          const label = item.slice(0, idx).trim()
+          const href = item.slice(idx + 1).trim()
+          if (!label || !(/^(https?:\/\/|\/)/.test(href))) return null
+          return { label, href }
+        })
+        .filter((x): x is { label: string; href: string } => !!x)
+        .slice(0, 10)
+      if (items.length === 0) return ''
+      return `<nav class="mb-footer-links">${items
+        .map((i) => `<a href="${escAttr(i.href)}"${i.href.startsWith('/') ? '' : ' target="_blank" rel="noreferrer noopener"'}>${escHtml(i.label)}</a>`)
+        .join('<span class="mb-fl-sep">·</span>')}</nav><style>.mb-footer-links{margin-top:.5rem;display:flex;flex-wrap:wrap;gap:.35rem .75rem;align-items:center}.mb-footer-links a{color:inherit;text-decoration:none}.mb-footer-links a:hover{color:var(--mb-accent)}.mb-fl-sep{opacity:.5}</style>`
+    },
+  },
+  {
     id: 'giscus',
     name: 'giscus 评论',
     mount: 'footer',
@@ -62,6 +106,10 @@ export const PLUGIN_DEFS: PluginDef[] = [
     },
   },
 ]
+
+function escHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
 
 function escAttr(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')

@@ -5,7 +5,7 @@ export type NavItem = { label: string; href: string }
 export type SiteInfo = { name: string; description: string; footer: string; nav?: NavItem[] }
 
 /** 主题 Design Tokens（用户可在 Admin 覆盖） */
-export type ThemeTokens = { accent: string; radius: number; width: number; font: 'sans' | 'serif' }
+export type ThemeTokens = { accent: string; radius: number; width: number; font: 'sans' | 'serif'; fontSize: number }
 export type ThemeContext = {
   site: SiteInfo
   title: string
@@ -43,7 +43,7 @@ nav.site-nav::-webkit-scrollbar{display:none}
 nav.site-nav a{font-size:.9rem;color:#666;white-space:nowrap;padding:.15rem 0}
 nav.site-nav a:hover,nav.site-nav a.active{color:var(--mb-accent)}
 nav.site-nav a.active{font-weight:600}
-main{max-width:var(--mb-width);margin:0 auto;padding:2.5rem 1.25rem 4rem}
+main{max-width:var(--mb-width);margin:0 auto;padding:2.5rem 1.25rem 4rem;font-size:${t.fontSize}px}
 a.back{display:inline-block;margin-bottom:1rem;color:#888;font-size:.9rem}a.back:hover{color:var(--mb-accent)}
 h1,h2,h3{line-height:1.35}
 footer.site{max-width:var(--mb-width);margin:2rem auto 0;padding:1.25rem;color:#888;font-size:.85rem;border-top:1px solid #e8e8ec}
@@ -114,7 +114,7 @@ async function shell(ctx: ThemeContext, extraCss: string, bodyCls: string, body:
 const magazine: BuiltinTheme = {
   id: 'magazine',
   name: '极简杂志',
-  defaultTokens: { accent: '#5b5bd6', radius: 12, width: 46, font: 'sans' },
+  defaultTokens: { accent: '#5b5bd6', radius: 12, width: 46, font: 'sans', fontSize: 16 },
   async render(ctx, body) {
     return shell({ ...ctx, tokens: ctx.tokens }, `
 .post .meta{margin:.3rem 0 .1rem}
@@ -126,7 +126,7 @@ h1,h2{letter-spacing:-.01em}`, 'theme-magazine', body)
 const classic: BuiltinTheme = {
   id: 'classic',
   name: '经典博客',
-  defaultTokens: { accent: '#8a6d3b', radius: 6, width: 42, font: 'serif' },
+  defaultTokens: { accent: '#8a6d3b', radius: 6, width: 42, font: 'serif', fontSize: 17 },
   async render(ctx, body) {
     return shell({ ...ctx, tokens: ctx.tokens }, `
 body{background:#faf8f4}
@@ -139,7 +139,7 @@ header.site{background:#faf8f4ee}
 const gallery: BuiltinTheme = {
   id: 'gallery',
   name: '相册封面',
-  defaultTokens: { accent: '#0e7490', radius: 16, width: 60, font: 'sans' },
+  defaultTokens: { accent: '#0e7490', radius: 16, width: 60, font: 'sans', fontSize: 16 },
   async render(ctx, body) {
     return shell({ ...ctx, tokens: ctx.tokens }, `
 body{background:#101418;color:#e8ebee}

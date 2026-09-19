@@ -456,13 +456,16 @@ async function main() {
     check('未知主题回退默认', badId.res.status === 200 && (await badHome.text()).includes('--mb-accent:#5b5bd6'))
   }
 
-  // 插件池：启用后挂载点输出进页面
+  // 插件池：启用后挂载点输出进页面（含 lightbox / katex / footer-links 实现）
   {
     await call('PUT', '/api/settings', {
       body: {
         plugins: [
           { id: 'reading-time', enabled: true },
           { id: 'highlight', enabled: true, config: { theme: 'github' } },
+          { id: 'lightbox', enabled: true },
+          { id: 'katex', enabled: true },
+          { id: 'footer-links', enabled: true, config: { links: 'GitHub|https://github.com; 站内|/about; 坏的|javascript:alert(1)' } },
         ],
       },
     })
@@ -470,6 +473,12 @@ async function main() {
     const html = await page.text()
     check('插件 head 注入（highlight 脚本）', html.includes('highlight.min.js'))
     check('插件 meta 挂载（约 N 分钟）', html.includes('约') && html.includes('分钟'))
+    check('lightbox 插件注入', html.includes('mb-lightbox'))
+    check('katex 插件注入', html.includes('katex.min.css'))
+    check(
+      'footer-links 渲染并过滤非法 href',
+      html.includes('href="https://github.com"') && html.includes('>站内<') && !html.includes('javascript:alert'),
+    )
   }
 
   // 模板主题（v2）：zip 上传 → 激活 custom → Liquid 渲染 → 资产服务 → 回退内置

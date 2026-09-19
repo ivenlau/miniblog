@@ -1,46 +1,110 @@
 import { chromium } from 'playwright'
-
-/** 截图博客关键页面，输出到 /tmp/mb-shots/ */
-const pages = [
-  { url: '/', name: '01-home' },
-  { url: '/post/标签测试文', name: '02-post' },
-  { url: '/archive', name: '03-archive' },
-  { url: '/tags', name: '04-tags' },
-  { url: '/page/about', name: '05-about' },
-  { url: '/admin/login', name: '06-admin-login' },
-]
-
-// 移动端视口（公开站导航换行 / Admin 底部导航）
-const mobilePages = [
-  { url: '/', name: 'm1-home' },
-  { url: '/post/标签测试文', name: 'm2-post' },
-  { url: '/admin/login', name: 'm3-admin-login' },
-]
-
 import { mkdirSync } from 'node:fs'
+
+/**
+ * 截图博客关键页面，输出到 /tmp/mb-shots/。
+ * 前提：wrangler dev 运行中 + 全新库（脚本会走完整的 setup UI 流程，
+ * 用 CDP 虚拟认证器完成 Passkey 注册/登录）。
+ */
+const BASE = 'http://localhost:8787' // WebAuthn 绑定 origin，必须与 APP_PUBLIC_URL 同 host
 mkdirSync('/tmp/mb-shots', { recursive: true })
 
 const browser = await chromium.launch({ args: ['--no-sandbox'] })
-const page = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage()
+const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
 
-for (const p of pages) {
-  await page.goto(`http://127.0.0.1:8787${p.url}`, { waitUntil: 'networkidle' })
-  await page.screenshot({ path: `/tmp/mb-shots/${p.name}.png`, fullPage: false })
-  console.log(`✓ ${p.name}`)
+const page = await context.newPage()
+// CDP 虚拟认证器（支持 resident key + 自动通过用户验证）。
+// 注意：authenticator 绑定在创建它的 page 上，必须挂在真正执行 WebAuthn 的页面。
+const cdp = await context.newCDPSession(page)
+await cdp.send('WebAuthn.enable')
+await cdp.send('WebAuthn.addVirtualAuthenticator', {
+  options: {
+    protocol: 'ctap2',
+    transport: 'internal',
+    hasResidentKey: true,
+    hasUserVerification: true,
+    isUserVerified: true,
+    automaticPresenceSimulation: true,
+  },
+})
+
+// ---- Setup（全新库）----
+await page.goto(`${BASE}/admin/setup`, { waitUntil: 'networkidle' })
+await page.locator('input[type="password"]').first().fill('dev-setup-token')
+await page.locator('button[type="submit"]').click()
+// 等待恢复码页出现（等导航+动画）
+await page.waitForSelector('div.font-mono span', { timeout: 20000 })
+const codes = await page.$$eval('div.font-mono span', (els) => els.map((e) => e.textContent ?? ''))
+console.log(`✓ setup 完成，恢复码 ${codes.length} 个`)
+await page.screenshot({ path: '/tmp/mb-shots/00-setup-recovery.png' })
+await page.getByRole('button', { name: /完成|Done/ }).click()
+await page.waitForURL('**/admin/', { timeout: 15000 }).catch(() => {})
+
+// ---- 准备一篇已发布文章（走 API，共享 context 会话）----
+const pub = await context.request.post(`${BASE}/api/posts`, {
+  headers: { 'x-miniblog': '1', 'content-type': 'application/json' },
+  data: {
+    title: '你好 Miniblog',
+    slug: 'hello-miniblog',
+    summary: '第一篇文章',
+    contentMd: '# 你好\n\n这是**第一篇**文章。\n\n## 小标题\n\n- 列表项一\n- 列表项二\n\n> 引用\n\n```js\nconsole.log(1)\n```\n\n$$E=mc^2$$',
+    tags: ['随笔'],
+  },
+})
+if (pub.status() === 201) {
+  const { id } = await pub.json()
+  await context.request.post(`${BASE}/api/posts/${id}/publish`, { headers: { 'x-miniblog': '1' } })
+  console.log('✓ 测试文章已发布')
 }
 
-// Admin 暗色模式（验证 theme.js 首帧应用 + 暗色 token）
-await page.addInitScript(() => localStorage.setItem('mb.theme', 'dark'))
-await page.goto('http://127.0.0.1:8787/admin/login', { waitUntil: 'networkidle' })
-await page.screenshot({ path: '/tmp/mb-shots/07-admin-login-dark.png' })
-console.log('✓ 07-admin-login-dark')
+const shots = async (list) => {
+  for (const { url, name, full } of list) {
+    await page.goto(`${BASE}${url}`, { waitUntil: 'networkidle' })
+    await page.waitForTimeout(300)
+    await page.screenshot({ path: `/tmp/mb-shots/${name}.png`, fullPage: !!full })
+    console.log(`✓ ${name}`)
+  }
+}
 
-// 移动端
-const mobile = await (await browser.newContext({ viewport: { width: 375, height: 812 } })).newPage()
-for (const p of mobilePages) {
-  await mobile.goto(`http://127.0.0.1:8787${p.url}`, { waitUntil: 'networkidle' })
-  await mobile.screenshot({ path: `/tmp/mb-shots/${p.name}.png`, fullPage: false })
-  console.log(`✓ ${p.name}`)
+// ---- Admin（亮色）----
+await shots([
+  { url: '/admin/', name: '01-admin-dashboard' },
+  { url: '/admin/posts', name: '02-admin-posts' },
+  { url: '/admin/posts/new', name: '03-admin-editor' },
+  { url: '/admin/blog', name: '04-admin-blog' },
+  { url: '/admin/theme', name: '05-admin-theme' },
+  { url: '/admin/plugins', name: '06-admin-plugins' },
+  { url: '/admin/settings', name: '07-admin-security' },
+])
+
+// ---- Admin 暗色（主题页 + 编辑器）----
+await page.addInitScript(() => localStorage.setItem('mb.theme', 'dark'))
+await shots([
+  { url: '/admin/theme', name: '08-admin-theme-dark' },
+  { url: '/admin/posts/new', name: '09-admin-editor-dark' },
+])
+await page.addInitScript(() => localStorage.removeItem('mb.theme'))
+
+// ---- 公开站（桌面 + 移动）----
+await shots([
+  { url: '/', name: '10-home' },
+  { url: '/post/hello-miniblog', name: '11-post' },
+  { url: '/tags', name: '12-tags' },
+  { url: '/archive', name: '13-archive' },
+])
+
+const mobile = await context.newPage()
+await mobile.setViewportSize({ width: 375, height: 812 })
+for (const { url, name } of [
+  { url: '/admin/', name: 'm1-admin-dashboard' },
+  { url: '/admin/theme', name: 'm2-admin-theme' },
+  { url: '/', name: 'm3-home' },
+  { url: '/post/hello-miniblog', name: 'm4-post' },
+]) {
+  await mobile.goto(`${BASE}${url}`, { waitUntil: 'networkidle' })
+  await mobile.waitForTimeout(300)
+  await mobile.screenshot({ path: `/tmp/mb-shots/${name}.png` })
+  console.log(`✓ ${name}`)
 }
 
 await browser.close()

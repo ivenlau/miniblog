@@ -24,7 +24,18 @@ export function surround(state: TextAreaState, before: string, after: string = b
   }
 }
 
-/** 行首前缀（# / > / - / 1.）；再次执行同一命令时取消。有序列表逐行编号 */
+/** 块级标记（标题/引用/无序/有序列表）——块命令互转时整体替换，避免嵌套出 `## # 标题` 之类 */
+const BLOCK_MARKER_RE = /^(#{1,6}[ \t]+|>[ \t]?|[-*+][ \t]+|\d+[.)][ \t]+)/
+/** 工具栏输出的标准有序标记（`1)` 等变体视作待归一，不算已是目标） */
+const OL_CANONICAL_RE = /^\d+\.[ \t]+/
+
+/**
+ * 块级命令（# 标题 / > 引用 / - 列表 / 1. 有序列表）：
+ * - 目标标记已存在于所有非空选中行 → 移除（取消该格式）
+ * - 否则把每行已有的块标记**替换**为目标标记（H2 行点 H1 → 变 H1；有序行点无序 → 变无序；
+ *   `1)` 变体归一为 `1.`）
+ * - 有序列表逐行重新编号；多选中的空行不加标记
+ */
 export function prefixLine(state: TextAreaState, prefix: string, ordered = false): TextAreaState {
   const { value, selectionStart: s, selectionEnd: e } = state
   const lineStart = value.lastIndexOf('\n', s - 1) + 1
@@ -33,24 +44,32 @@ export function prefixLine(state: TextAreaState, prefix: string, ordered = false
     return i === -1 ? value.length : i
   })()
   const lines = value.slice(lineStart, lineEnd).split('\n')
-  const matcher = ordered ? /^\d+\.\s/ : undefined
-  const has = (line: string) => (matcher ? matcher.test(line) : line.startsWith(prefix))
-  const strip = (line: string) => (matcher ? line.replace(matcher, '') : line.slice(prefix.length))
+  const hasTarget = (line: string) => (ordered ? OL_CANONICAL_RE.test(line) : line.startsWith(prefix))
+  const strip = (line: string) => line.replace(BLOCK_MARKER_RE, '')
 
-  // 所有选中行都已有该前缀 → 移除（取消格式）
-  if (lines.every((l) => has(l))) {
+  // 所有非空选中行都已是该块类型 → 取消
+  const nonEmpty = lines.filter((l) => l.trim() !== '')
+  if (nonEmpty.length > 0 && nonEmpty.every(hasTarget)) {
     const out = lines.map(strip).join('\n')
-    return { value: value.slice(0, lineStart) + out + value.slice(lineEnd), selectionStart: lineStart, selectionEnd: lineStart + out.length }
+    return {
+      value: value.slice(0, lineStart) + out + value.slice(lineEnd),
+      selectionStart: lineStart,
+      selectionEnd: lineStart + out.length,
+    }
   }
   let n = 0
   const out = lines
     .map((line) => {
       if (line.trim() === '' && lines.length > 1) return line
       n += 1
-      return `${n}. ${matcher ? line.replace(matcher, '') : line.startsWith(prefix) ? line.slice(prefix.length) : line}`
+      return ordered ? `${n}. ${strip(line)}` : prefix + strip(line)
     })
     .join('\n')
-  return { value: value.slice(0, lineStart) + out + value.slice(lineEnd), selectionStart: lineStart, selectionEnd: lineStart + out.length }
+  return {
+    value: value.slice(0, lineStart) + out + value.slice(lineEnd),
+    selectionStart: lineStart,
+    selectionEnd: lineStart + out.length,
+  }
 }
 
 /** 在光标处插入文本（替换选区）；cursorBack 使光标落在插入内容内向后的偏移 */

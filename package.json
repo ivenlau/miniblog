@@ -5,8 +5,8 @@
   "type": "module",
   "description": "Lightweight personal blog on Cloudflare Workers — shares auth & assets with Minidriver",
   "scripts": {
-    "dev": "concurrently -c yellow,cyan -n api,admin \"wrangler dev\" \"vite build --watch --outDir public/admin\"",
-    "dev:api": "wrangler dev",
+    "dev": "node scripts/ensure-dist.mjs && concurrently -c yellow,cyan -n api,admin \"wrangler dev\" \"vite dev --port 5174\"",
+    "dev:api": "node scripts/ensure-dist.mjs && wrangler dev",
     "build": "vite build",
     "deploy": "npm run build && node scripts/resolve-config.mjs && wrangler deploy",
     "typecheck": "tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.admin.json --noEmit",

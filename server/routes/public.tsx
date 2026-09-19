@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import type { AppEnv } from '../lib/env'
 import { getCached, putCached, purgeBlogCache } from '../lib/cache'
 import { renderMarkdown } from '../render/markdown'
+import { renderLiquid } from '../render/liquid'
 import { renderMount } from '../plugins/registry'
 import type { PluginConfig } from '../plugins/registry'
 import { getBuiltinTheme, resolveTokens, type SiteInfo, type ThemeTokens } from '../render/themes/registry'
@@ -39,17 +40,25 @@ async function siteInfo(db: AppEnv['Bindings']['DB']): Promise<SiteInfoT> {
 
 /** 读取主题与插件配置 */
 async function resolveTheme(db: AppEnv['Bindings']['DB']): Promise<{
+  mode: 'builtin' | 'custom'
+  themeId?: string
   render: (ctx: { site: SiteInfoT; title: string; tokens: ThemeTokens; headHtml?: string; footerHtml?: string }, body: any) => any
   tokens: ThemeTokens
   plugins: PluginConfig[]
 }> {
   const row = await db.prepare("SELECT value FROM blog_settings WHERE key = 'theme'").first<{ value: string }>()
+  let mode: 'builtin' | 'custom' = 'builtin'
   let id = 'magazine'
   let userTokens: Partial<ThemeTokens> | undefined
   if (row) {
     try {
-      const parsed = JSON.parse(row.value) as { mode?: string; id?: string; tokens?: Partial<ThemeTokens> }
-      if (parsed.id) id = parsed.id
+      const parsed = JSON.parse(row.value) as { mode?: 'builtin' | 'custom'; id?: string; tokens?: Partial<ThemeTokens> }
+      if (parsed.mode === 'custom' && parsed.id) {
+        mode = 'custom'
+        id = parsed.id
+      } else if (parsed.id) {
+        id = parsed.id
+      }
       userTokens = parsed.tokens
     } catch {
       /* 设置损坏则用默认主题 */
@@ -66,7 +75,7 @@ async function resolveTheme(db: AppEnv['Bindings']['DB']): Promise<{
       plugins = []
     }
   }
-  return { render: (ctx, body) => theme.render({ ...ctx, tokens }, body), tokens, plugins }
+  return { mode, themeId: id, render: (ctx, body) => theme.render({ ...ctx, tokens }, body), tokens, plugins }
 }
 
 /** 组装挂载点 HTML */
@@ -99,6 +108,19 @@ publicSite.get('/', async (c) => {
      WHERE status = 'published' ORDER BY pinned DESC, published_at DESC LIMIT 50`,
   ).all<PostRow>()
   const posts = results ?? []
+
+  // 模板主题：index.liquid 全页渲染
+  if (theme.mode === 'custom' && theme.themeId) {
+    const html = await renderLiquid(c.env, theme.themeId, 'index.liquid', {
+      site: info,
+      posts: posts.map((p) => ({ ...p, url: `/post/${p.slug}`, date: p.published_at ?? p.updated_at })),
+    })
+    if (html !== null) {
+      const res = new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      await putCached(c.env, '/', res)
+      return res
+    }
+  }
 
   const res = await c.html(
     await theme.render(
@@ -142,6 +164,25 @@ publicSite.get('/post/:slug', async (c) => {
 
   await c.env.DB.prepare('UPDATE blog_posts SET views = views + 1 WHERE id = ?').bind(row.id).run()
   const rendered = renderMarkdown(row.content_md)
+
+  // 模板主题：post.liquid 全页渲染
+  if (theme.mode === 'custom' && theme.themeId) {
+    const html = await renderLiquid(c.env, theme.themeId, 'post.liquid', {
+      site: info,
+      post: {
+        title: row.title,
+        html: renderMarkdown(row.content_md).html,
+        date: new Date(row.published_at ?? row.updated_at).toLocaleDateString('zh-CN'),
+        views: row.views + 1,
+        readingMinutes: renderMarkdown(row.content_md).readingMinutes,
+      },
+    })
+    if (html !== null) {
+      const res = new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      await putCached(c.env, path, res)
+      return res
+    }
+  }
 
   const m = mounts(theme.plugins, { title: row.title, contentMd: row.content_md, rendered })
   const metaHtml = m.postMeta

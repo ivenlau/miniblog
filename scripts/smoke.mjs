@@ -5,6 +5,7 @@
  */
 import { createHmac } from 'node:crypto'
 import { readFileSync } from 'node:fs'
+import { zipSync, strToU8 } from 'fflate'
 
 const BASE = process.env.SMOKE_BASE ?? 'http://127.0.0.1:8787'
 const SETUP_TOKEN = process.env.SMOKE_SETUP_TOKEN ?? readDevVars().SETUP_TOKEN ?? 'dev-setup-token'
@@ -453,20 +454,68 @@ async function main() {
     check('插件 meta 挂载（约 N 分钟）', html.includes('约') && html.includes('分钟'))
   }
 
+  // 模板主题（v2）：zip 上传 → 激活 custom → Liquid 渲染 → 资产服务 → 回退内置
+  {
+    const zip = zipSync({
+      'theme.json': strToU8(JSON.stringify({ id: 'mytheme', name: '我的自定义主题' })),
+      'templates/index.liquid': strToU8(
+        '<html><body><h1>{{ site.name }} — CUSTOM</h1>{% for p in posts %}<div>{{ p.title }}</div>{% endfor %}</body></html>',
+      ),
+      'templates/post.liquid': strToU8(
+        '<html><body><h1>POST:{{ post.title }}</h1><div>{{ post.html }}</div></body></html>',
+      ),
+      'assets/style.css': strToU8('body{color:#123}'),
+    })
+    const up = await call('POST', '/api/themes', { raw: true, body: zip })
+    check('主题包上传', up.res.status === 201 && up.json?.id === 'mytheme', JSON.stringify(up.json))
+
+    const activate = await call('PUT', '/api/settings', {
+      body: { theme: { mode: 'custom', id: 'mytheme' } },
+    })
+    check('激活自定义主题', activate.res.status === 200)
+
+    const home = await fetch(`${BASE}/`)
+    const homeHtml = await home.text()
+    check('首页 Liquid 渲染', home.status === 200 && homeHtml.includes('— CUSTOM') && homeHtml.includes('标签测试文'))
+
+    const postPage = await fetch(`${BASE}/post/标签测试文`)
+    check('文章页 Liquid 渲染', postPage.status === 200 && (await postPage.text()).includes('POST:标签测试文'))
+
+    const css = await fetch(`${BASE}/themes/mytheme/assets/style.css`)
+    check('主题资产服务', css.status === 200 && (await css.text()).includes('#123'))
+    const tplLeak = await fetch(`${BASE}/themes/mytheme/templates/index.liquid`)
+    check('模板源码不对外', tplLeak.status === 404)
+
+    // 回退内置主题
+    await call('PUT', '/api/settings', { body: { theme: { mode: 'builtin', id: 'magazine' } } })
+    const back = await fetch(`${BASE}/`)
+    check('切回内置主题', back.status === 200 && (await back.text()).includes('--mb-accent'))
+
+    // 素材直链（M2 回归）：上传后本域直链可访问
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4])
+    const up2 = await call('POST', `/api/upload?name=${encodeURIComponent('pixel.png')}&mime=image/png`, { raw: true, body: png })
+    check('上传素材', up2.res.status === 201 && up2.json?.url?.includes('/assets/'), JSON.stringify(up2.json))
+    const slug2 = up2.json?.url?.split('/assets/')[1]
+    const direct = await fetch(`${BASE}/assets/${slug2}`)
+    check('素材直链（无鉴权+缓存+CORS）', direct.status === 200 && direct.headers.get('content-type') === 'image/png' && (direct.headers.get('cache-control') ?? '').includes('public'))
+    const noauth = await fetch(`${BASE}/api/assets`)
+    check('素材列表需登录', noauth.status === 401)
+  }
+
   // 素材联动（standalone：LocalAssetStore + 本域直链）
   {
     const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4])
-    const up = await call('POST', `/api/upload?name=${encodeURIComponent('pixel.png')}&mime=${encodeURIComponent('image/png')}`, {
+    const up2 = await call('POST', `/api/upload?name=${encodeURIComponent('pixel.png')}&mime=${encodeURIComponent('image/png')}`, {
       raw: true,
       body: png,
     })
-    check('上传素材', up.res.status === 201 && up.json?.url?.includes('/assets/'), JSON.stringify(up.json))
-    const slug = up.json?.url?.split('/assets/')[1]
+    check('上传素材', up2.res.status === 201 && up2.json?.url?.includes('/assets/'), JSON.stringify(up2.json))
+    const slug2 = up2.json?.url?.split('/assets/')[1]
 
     const list = await call('GET', '/api/assets?mime=image/%')
-    check('素材列表', list.json?.items?.some((i) => i.url === up.json?.url))
+    check('素材列表', list.json?.items?.some((i) => i.url === up2.json?.url))
 
-    const direct = await fetch(`${BASE}/assets/${slug}`)
+    const direct = await fetch(`${BASE}/assets/${slug2}`)
     const buf = new Uint8Array(await direct.arrayBuffer())
     check(
       '素材直链（无鉴权+缓存+CORS）',

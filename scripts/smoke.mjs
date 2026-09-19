@@ -362,7 +362,7 @@ async function main() {
 
     const page = await fetch(`${BASE}/post/hello-miniblog`)
     const html = await page.text()
-    check('公开页 SSR 渲染', page.status === 200 && html.includes('改过的正文') && html.includes('分钟阅读'), `status=${page.status}`)
+    check('公开页 SSR 渲染', page.status === 200 && html.includes('改过的正文') && html.includes('次浏览'), `status=${page.status}`)
 
     const home = await fetch(`${BASE}/`)
     check('首页列出文章', home.status === 200 && (await home.text()).includes('Hello Miniblog'))
@@ -434,7 +434,8 @@ async function main() {
     const navHome = await fetch(`${BASE}/`)
     const navHtml = await navHome.text()
     check('公开站页头导航', navHome.status === 200 && navHtml.includes('site-nav') && navHtml.includes('/archive') && navHtml.includes('/page/about'))
-    check('文章页返回链接', (await (await fetch(`${BASE}/post/标签测试文`)).text()).includes('class="back"'))
+    const backHtml = await (await fetch(`${BASE}/post/标签测试文`)).text()
+    check('无返回链接（改为回顶部按钮）', !backHtml.includes('class="back"') && backHtml.includes('id="mb-top"') && backHtml.includes('rel="icon"'))
   }
 
   // 主题系统：切换主题 + tokens 即时生效
@@ -456,12 +457,19 @@ async function main() {
     check('未知主题回退默认', badId.res.status === 200 && (await badHome.text()).includes('--mb-accent:#5b5bd6'))
   }
 
-  // 插件池：启用后挂载点输出进页面（含 lightbox / katex / footer-links 实现）
+  // 插件池：启用后挂载点输出进页面（含 lightbox / katex / footer-links / toc 实现）
   {
+    // 目录插件需要含标题的文章
+    const tocPost = await call('POST', '/api/posts', {
+      body: { title: '目录测试文', contentMd: '# T\n\n## 小标题A\n\n正文\n\n## 小标题B\n\n正文B' },
+    })
+    await call('POST', `/api/posts/${tocPost.json?.id}/publish`)
+
     await call('PUT', '/api/settings', {
       body: {
         plugins: [
           { id: 'reading-time', enabled: true },
+          { id: 'toc', enabled: true },
           { id: 'highlight', enabled: true, config: { theme: 'github' } },
           { id: 'lightbox', enabled: true },
           { id: 'katex', enabled: true },
@@ -478,6 +486,20 @@ async function main() {
     check(
       'footer-links 渲染并过滤非法 href',
       html.includes('href="https://github.com"') && html.includes('>站内<') && !html.includes('javascript:alert'),
+    )
+    // 目录只渲染一份（内置目录已移除，唯一来源是 toc 插件）
+    const tocHtml = await (await fetch(`${BASE}/post/目录测试文`)).text()
+    check(
+      '目录仅一份（插件唯一来源）',
+      (tocHtml.match(/<nav class="mb-toc-plugin">/g) ?? []).length === 1 && !tocHtml.includes('class="toc"'),
+    )
+
+    // 全部关闭后，插件输出（含缓存中的旧 HTML）必须从文章页消失
+    await call('PUT', '/api/settings', { body: { plugins: [] } })
+    const off = await (await fetch(`${BASE}/post/目录测试文`)).text()
+    check(
+      '关闭插件即时生效（文章页缓存已清）',
+      !off.includes('<nav class="mb-toc-plugin">') && !off.includes('>· 约') && !off.includes('分钟阅读') && !off.includes('mb-lightbox'),
     )
   }
 

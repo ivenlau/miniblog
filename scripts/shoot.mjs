@@ -122,6 +122,13 @@ await shots([
   { url: '/page/about', name: '14-about' },
 ])
 
+// 长页面滚动后「回顶部」按钮出现
+await page.goto(`${BASE}/post/hello-miniblog`, { waitUntil: 'networkidle' })
+await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+await page.waitForTimeout(500)
+await page.screenshot({ path: '/tmp/mb-shots/15-post-scrolled.png' })
+console.log('✓ 15-post-scrolled')
+
 const mobile = await context.newPage()
 await mobile.setViewportSize({ width: 375, height: 812 })
 for (const { url, name } of [

@@ -438,4 +438,6 @@ blog_settings.site.nav?: [{ label, href }]   // href 必须 / 开头或 http(s):
 - 内置主题 `shell()` 渲染 `nav.site-nav`（`ctx.path` 精确匹配高亮）；Liquid 主题上下文同样含 `site.nav` 与 `path`
 - 零 JS：移动端导航折行为横向可滑动第二行（`@media (max-width:640px)`）
 - 新增 `GET /tags`（已发布文章的标签聚合，进 sitemap）；`server/lib/cache.ts` 的清除列表含 `/tags`，改导航保存即清
-- 文章页 `← 站名`、归档/标签/页面 `← 首页` 返回链接
+- 页头 brand 带站点图标（`SiteIcon`，与 Admin Logo/favicon 同源）；`<link rel="icon">` 为内联 SVG data URI
+- 零返回链接（占行影响排版）；长页面滚动 >320px 后右下角出现「回顶部」浮动按钮（shell 内联脚本，`#mb-top`）
+- 公开站日期统一按东八区显示（`fmtDate`，Workers Intl 默认 UTC 会让晚间发布的文章归档偏移一天）；阅读时长与目录由插件唯一提供（内置版本已移除，避免关闭后仍显示/出现两份目录）；设置变更连带清所有文章页缓存

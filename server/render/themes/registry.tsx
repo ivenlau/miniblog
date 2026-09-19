@@ -28,6 +28,28 @@ export type BuiltinTheme = {
 const SANS = "-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', sans-serif"
 const SERIF = "'Songti SC', Georgia, 'Noto Serif SC', serif"
 
+/** 站点图标：圆角方块 + 笔与书写线（与 Admin Logo / favicon 同源） */
+export const SITE_ICON_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#5B5BD6"/><g fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9" opacity=".85"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/></g></svg>'
+const SITE_ICON_DATA_URI = `data:image/svg+xml,${encodeURIComponent(SITE_ICON_SVG)}`
+
+/** 页头小图标（颜色跟随主题 accent） */
+export function SiteIcon({ size = 22 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} style={{ display: 'block' }} aria-hidden>
+      <rect width="24" height="24" rx="6" fill="var(--mb-accent)" />
+      <g fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 20h9" opacity=".85" />
+        <path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z" />
+      </g>
+    </svg>
+  )
+}
+
+/** 「回顶部」浮动按钮（长页面滚动后出现；零依赖内联脚本） */
+const BACK_TO_TOP_JS =
+  '(function(){var b=document.getElementById("mb-top");if(!b)return;var f=function(){b.classList.toggle("on",window.scrollY>320)};window.addEventListener("scroll",f,{passive:true});f();b.addEventListener("click",function(){window.scrollTo({top:0,behavior:"smooth"})})})()'
+
 const BASE_CSS = (t: ThemeTokens, extra: string) => `
 :root{--mb-accent:${t.accent};--mb-radius:${t.radius}px;--mb-width:${t.width}rem}
 *{box-sizing:border-box}
@@ -44,7 +66,11 @@ nav.site-nav a{font-size:.9rem;color:#666;white-space:nowrap;padding:.15rem 0}
 nav.site-nav a:hover,nav.site-nav a.active{color:var(--mb-accent)}
 nav.site-nav a.active{font-weight:600}
 main{max-width:var(--mb-width);margin:0 auto;padding:2.5rem 1.25rem 4rem;font-size:${t.fontSize}px}
-a.back{display:inline-block;margin-bottom:1rem;color:#888;font-size:.9rem}a.back:hover{color:var(--mb-accent)}
+#mb-top{position:fixed;right:1.25rem;bottom:1.25rem;z-index:50;width:2.6rem;height:2.6rem;display:flex;align-items:center;justify-content:center;
+  border:none;border-radius:50%;background:var(--mb-accent);color:#fff;cursor:pointer;box-shadow:0 4px 16px rgb(0 0 0/.22);
+  opacity:0;pointer-events:none;transform:translateY(6px);transition:opacity .2s ease,transform .2s ease}
+#mb-top.on{opacity:1;pointer-events:auto;transform:none}
+#mb-top:hover{filter:brightness(1.08)}
 h1,h2,h3{line-height:1.35}
 footer.site{max-width:var(--mb-width);margin:2rem auto 0;padding:1.25rem;color:#888;font-size:.85rem;border-top:1px solid #e8e8ec}
 @media (max-width:640px){
@@ -79,6 +105,7 @@ async function shell(ctx: ThemeContext, extraCss: string, bodyCls: string, body:
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>{title}</title>
+        <link rel="icon" type="image/svg+xml" href={SITE_ICON_DATA_URI} />
         <style>{BASE_CSS(tokens, extraCss)}</style>
         {ctx.headHtml ? <div dangerouslySetInnerHTML={{ __html: ctx.headHtml }} /> : null}
       </head>
@@ -86,7 +113,8 @@ async function shell(ctx: ThemeContext, extraCss: string, bodyCls: string, body:
         <header class="site">
           <div class="inner">
             <div class="brand">
-              <a href="/" style={{ fontWeight: 700, fontSize: '1.05rem' }}>
+              <a href="/" style={{ display: 'flex', alignItems: 'center', gap: '.45rem', fontWeight: 700, fontSize: '1.05rem' }}>
+                <SiteIcon size={22} />
                 {site.name}
               </a>
               {site.description && <p class="desc">{site.description}</p>}
@@ -107,6 +135,13 @@ async function shell(ctx: ThemeContext, extraCss: string, bodyCls: string, body:
           {site.footer || `© ${year} ${site.name}`}
           {ctx.footerHtml ? <div dangerouslySetInnerHTML={{ __html: ctx.footerHtml }} /> : null}
         </footer>
+        {/* 长页面滚动后出现的「回顶部」按钮 */}
+        <button type="button" id="mb-top" aria-label="回到顶部">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m18 15-6-6-6 6" />
+          </svg>
+        </button>
+        <script dangerouslySetInnerHTML={{ __html: BACK_TO_TOP_JS }} />
       </body>
     </html>
   )

@@ -127,6 +127,15 @@ function mounts(plugins: PluginConfig[], post?: { title: string; contentMd: stri
   }
 }
 
+/** 公开站日期统一按东八区显示（Workers Intl 默认 UTC，晚间发布会被归到前一天） */
+const DISPLAY_TZ = 'Asia/Shanghai'
+function fmtDate(ms: number): string {
+  return new Date(ms).toLocaleDateString('zh-CN', { timeZone: DISPLAY_TZ })
+}
+function fmtYearMonth(ms: number): string {
+  return new Date(ms).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', timeZone: DISPLAY_TZ })
+}
+
 function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
@@ -173,7 +182,7 @@ publicSite.get('/', async (c) => {
               </h2>
             </a>
             {p.summary && <p style={{ color: '#888', margin: '.25rem 0' }}>{p.summary}</p>}
-            <time class="meta">{new Date(p.published_at ?? p.updated_at).toLocaleDateString('zh-CN')}</time>
+            <time class="meta">{fmtDate(p.published_at ?? p.updated_at)}</time>
           </div>
         ))}
       </div>,
@@ -213,7 +222,7 @@ publicSite.get('/post/:slug', async (c) => {
       post: {
         title: row.title,
         html: renderMarkdown(row.content_md).html,
-        date: new Date(row.published_at ?? row.updated_at).toLocaleDateString('zh-CN'),
+        date: fmtDate(row.published_at ?? row.updated_at),
         views: row.views + 1,
         readingMinutes: renderMarkdown(row.content_md).readingMinutes,
       },
@@ -233,24 +242,11 @@ publicSite.get('/post/:slug', async (c) => {
     await theme.render(
       { site: info, title: `${row.title} · ${info.name}`, tokens: theme.tokens, path, headHtml: m.head, footerHtml: m.footer },
       <article>
-        <a class="back" href="/">
-          ← {info.name}
-        </a>
         <h1>{row.title}</h1>
         <p class="meta">
-          {new Date(row.published_at ?? row.updated_at).toLocaleDateString('zh-CN')} · {rendered.readingMinutes} 分钟阅读 ·{' '}
-          {row.views + 1} 次浏览
+          {fmtDate(row.published_at ?? row.updated_at)} · {row.views + 1} 次浏览
           {metaHtml && <span dangerouslySetInnerHTML={{ __html: ` ${metaHtml}` }} />}
         </p>
-        {rendered.toc.length > 0 && (
-          <nav class="toc">
-            {rendered.toc.map((t) => (
-              <a href={`#${t.id}`} style={{ paddingLeft: `${(t.level - 2) * 1}rem` }}>
-                {t.text}
-              </a>
-            ))}
-          </nav>
-        )}
         <div dangerouslySetInnerHTML={{ __html: rendered.html }} />
         {postExtra && <div dangerouslySetInnerHTML={{ __html: postExtra }} />}
       </article>,
@@ -269,12 +265,12 @@ publicSite.get('/archive', async (c) => {
   const info = await siteInfo(c.env.DB)
   const theme = await resolveTheme(c.env.DB)
   const { results } = await c.env.DB.prepare(
-    "SELECT slug, title, published_at FROM blog_posts WHERE status = 'published' ORDER BY published_at DESC",
-  ).all<{ slug: string; title: string; published_at: number | null }>()
+    "SELECT slug, title, published_at, updated_at FROM blog_posts WHERE status = 'published' ORDER BY published_at DESC",
+  ).all<{ slug: string; title: string; published_at: number | null; updated_at: number }>()
   const groups = new Map<string, { slug: string; title: string }[]>()
   for (const p of results ?? []) {
-    const at = p.published_at ?? 0
-    const label = new Date(at).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long' })
+    const at = p.published_at ?? p.updated_at
+    const label = fmtYearMonth(at)
     if (!groups.has(label)) groups.set(label, [])
     groups.get(label)!.push({ slug: p.slug, title: p.title })
   }
@@ -283,9 +279,6 @@ publicSite.get('/archive', async (c) => {
     await theme.render(
       { site: info, title: `归档 · ${info.name}`, tokens: theme.tokens, path: '/archive' },
       <div>
-        <a class="back" href="/">
-          ← 首页
-        </a>
         <h1 class="page-title">归档</h1>
         {[...groups.entries()].map(([label, posts]) => (
           <div style={{ marginBottom: '2rem' }}>
@@ -325,9 +318,6 @@ publicSite.get('/tags', async (c) => {
     await theme.render(
       { site: info, title: `标签 · ${info.name}`, tokens: theme.tokens, path: '/tags' },
       <div>
-        <a class="back" href="/">
-          ← 首页
-        </a>
         <h1 class="page-title">标签</h1>
         {tags.length === 0 && <p style={{ color: '#888' }}>还没有标签。</p>}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.5rem' }}>
@@ -378,9 +368,6 @@ publicSite.get('/tag/:slug', async (c) => {
     await theme.render(
       { site: info, title: `标签「${tag.name}」 · ${info.name}`, tokens: theme.tokens, path },
       <div>
-        <a class="back" href="/">
-          ← 首页
-        </a>
         <h1 class="page-title">标签「{tag.name}」</h1>
         {(results ?? []).length === 0 && <p style={{ color: '#888' }}>没有文章。</p>}
         {(results ?? []).map((p) => (
@@ -418,9 +405,6 @@ publicSite.get('/page/:slug', async (c) => {
     await theme.render(
       { site: info, title: `${row.title} · ${info.name}`, tokens: theme.tokens, path },
       <article>
-        <a class="back" href="/">
-          ← 首页
-        </a>
         <h1>{row.title}</h1>
         <div dangerouslySetInnerHTML={{ __html: rendered.html }} />
       </article>,

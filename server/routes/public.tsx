@@ -2,8 +2,11 @@ import { Hono } from 'hono'
 import type { AppEnv } from '../lib/env'
 import { getCached, putCached, purgeBlogCache } from '../lib/cache'
 import { renderMarkdown } from '../render/markdown'
+import { renderMount } from '../plugins/registry'
+import type { PluginConfig } from '../plugins/registry'
+import { getBuiltinTheme, resolveTokens, type SiteInfo, type ThemeTokens } from '../render/themes/registry'
 
-/** 公开站 SSR：首页 / 文章 / 归档 / 标签 / 页面 / RSS / sitemap */
+/** 公开站 SSR：首页 / 文章 / 归档 / 标签 / 页面 / RSS / sitemap（主题渲染） */
 export const publicSite = new Hono<AppEnv>()
 
 type PostRow = {
@@ -19,59 +22,68 @@ type PostRow = {
   updated_at: number
 }
 
-type SiteInfo = { name: string; description: string; footer: string }
+type SiteInfoT = { name: string; description: string; footer: string }
 
-const DEFAULT_SITE: SiteInfo = { name: 'Miniblog', description: '', footer: '' }
+const DEFAULT_SITE: SiteInfoT = { name: 'Miniblog', description: '', footer: '' }
 
-async function siteInfo(db: AppEnv['Bindings']['DB']): Promise<SiteInfo> {
+async function siteInfo(db: AppEnv['Bindings']['DB']): Promise<SiteInfoT> {
   const s = await db.prepare("SELECT value FROM blog_settings WHERE key = 'site'").first<{ value: string }>()
   if (!s) return DEFAULT_SITE
   try {
-    const parsed = JSON.parse(s.value) as Partial<SiteInfo>
+    const parsed = JSON.parse(s.value) as Partial<SiteInfoT>
     return { name: parsed.name || DEFAULT_SITE.name, description: parsed.description ?? '', footer: parsed.footer ?? '' }
   } catch {
     return DEFAULT_SITE
   }
 }
 
-function esc(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+/** 读取主题与插件配置 */
+async function resolveTheme(db: AppEnv['Bindings']['DB']): Promise<{
+  render: (ctx: { site: SiteInfoT; title: string; tokens: ThemeTokens; headHtml?: string; footerHtml?: string }, body: any) => any
+  tokens: ThemeTokens
+  plugins: PluginConfig[]
+}> {
+  const row = await db.prepare("SELECT value FROM blog_settings WHERE key = 'theme'").first<{ value: string }>()
+  let id = 'magazine'
+  let userTokens: Partial<ThemeTokens> | undefined
+  if (row) {
+    try {
+      const parsed = JSON.parse(row.value) as { mode?: string; id?: string; tokens?: Partial<ThemeTokens> }
+      if (parsed.id) id = parsed.id
+      userTokens = parsed.tokens
+    } catch {
+      /* 设置损坏则用默认主题 */
+    }
+  }
+  const theme = getBuiltinTheme(id)
+  const tokens = resolveTokens(theme, userTokens)
+  const pluginsRow = await db.prepare("SELECT value FROM blog_settings WHERE key = 'plugins'").first<{ value: string }>()
+  let plugins: PluginConfig[] = []
+  if (pluginsRow) {
+    try {
+      plugins = JSON.parse(pluginsRow.value) as PluginConfig[]
+    } catch {
+      plugins = []
+    }
+  }
+  return { render: (ctx, body) => theme.render({ ...ctx, tokens }, body), tokens, plugins }
 }
 
-function page(info: SiteInfo, title: string, body: unknown) {
-  return (
-    <html lang="zh-CN">
-      <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>{title}</title>
-        <style>
-          {`body{font-family:-apple-system,'PingFang SC','Noto Sans SC',sans-serif;margin:0;background:#f6f7f9;color:#17181c;line-height:1.7}
-main{max-width:46rem;margin:0 auto;padding:3rem 1.25rem}
-a{color:inherit;text-decoration:none}a:hover{color:#5b5bd6}
-.post{margin-bottom:2.5rem}.post h2{margin:0 0 .25rem;font-size:1.35rem}.meta{color:#667085;font-size:.85rem}
-article h1{font-size:1.9rem}article img{max-width:100%;border-radius:12px}article pre{overflow-x:auto;padding:1rem;background:#1d212b;color:#e7e9ee;border-radius:12px}
-article code{background:#eceef2;padding:.1em .35em;border-radius:6px}article pre code{background:none;padding:0}
-.toc{background:#fff;border:1px solid #e4e7ec;border-radius:12px;padding:1rem;margin:1.5rem 0}.toc a{display:block;padding:.15rem 0;font-size:.9rem}
-header.site{margin-bottom:2.5rem}header.site .desc{color:#667085;font-size:.9rem;margin-top:.25rem}
-footer.site{margin-top:3rem;border-top:1px solid #e4e7ec;padding-top:1rem;color:#667085;font-size:.85rem}
-h1.page-title{font-size:1.5rem;margin-bottom:1.5rem}`}
-        </style>
-      </head>
-      <body>
-        <main>
-          <header class="site">
-            <a href="/" style={{ fontWeight: 600, fontSize: '1.05rem' }}>
-              {info.name}
-            </a>
-            {info.description && <p class="desc">{info.description}</p>}
-          </header>
-          {body}
-          <footer class="site">{info.footer || `© ${new Date().getFullYear()} ${info.name}`}</footer>
-        </main>
-      </body>
-    </html>
-  )
+/** 组装挂载点 HTML */
+function mounts(plugins: PluginConfig[], post?: { title: string; contentMd: string; rendered: ReturnType<typeof renderMarkdown> }) {
+  const ctx = post
+    ? { post: { title: post.title, contentMd: post.contentMd, rendered: post.rendered } }
+    : { post: { title: '', contentMd: '', rendered: { html: '', toc: [], readingMinutes: 1, excerpt: '' } } }
+  return {
+    head: renderMount('head', plugins, ctx),
+    postMeta: renderMount('post_meta', plugins, ctx),
+    postHtml: renderMount('post_html', plugins, ctx),
+    footer: renderMount('footer', plugins, ctx),
+  }
+}
+
+function esc(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
 // ---------------------------------------------------------------- 首页
@@ -81,6 +93,7 @@ publicSite.get('/', async (c) => {
   if (cached) return cached
 
   const info = await siteInfo(c.env.DB)
+  const theme = await resolveTheme(c.env.DB)
   const { results } = await c.env.DB.prepare(
     `SELECT slug, title, summary, cover_url, pinned, published_at, updated_at FROM blog_posts
      WHERE status = 'published' ORDER BY pinned DESC, published_at DESC LIMIT 50`,
@@ -88,11 +101,10 @@ publicSite.get('/', async (c) => {
   const posts = results ?? []
 
   const res = await c.html(
-    page(
-      info,
-      info.name,
+    await theme.render(
+      { site: info, title: info.name, tokens: theme.tokens },
       <div>
-        {posts.length === 0 && <p style={{ color: '#667085' }}>还没有文章。</p>}
+        {posts.length === 0 && <p style={{ color: '#888' }}>还没有文章。</p>}
         {posts.map((p) => (
           <div class="post">
             <a href={`/post/${p.slug}`}>
@@ -101,7 +113,7 @@ publicSite.get('/', async (c) => {
                 {p.title}
               </h2>
             </a>
-            {p.summary && <p style={{ color: '#667085', margin: '.25rem 0' }}>{p.summary}</p>}
+            {p.summary && <p style={{ color: '#888', margin: '.25rem 0' }}>{p.summary}</p>}
             <time class="meta">{new Date(p.published_at ?? p.updated_at).toLocaleDateString('zh-CN')}</time>
           </div>
         ))}
@@ -122,25 +134,28 @@ publicSite.get('/post/:slug', async (c) => {
   const row = await c.env.DB.prepare("SELECT * FROM blog_posts WHERE slug = ? AND status = 'published'")
     .bind(c.req.param('slug'))
     .first<PostRow>()
+  const info = await siteInfo(c.env.DB)
+  const theme = await resolveTheme(c.env.DB)
   if (!row) {
-    const info = await siteInfo(c.env.DB)
-    return c.html(page(info, '404', <p>文章不存在或未发布。</p>), 404)
+    return c.html(await theme.render({ site: info, title: '404', tokens: theme.tokens }, <p>文章不存在或未发布。</p>), 404)
   }
-
 
   await c.env.DB.prepare('UPDATE blog_posts SET views = views + 1 WHERE id = ?').bind(row.id).run()
   const rendered = renderMarkdown(row.content_md)
-  const info = await siteInfo(c.env.DB)
+
+  const m = mounts(theme.plugins, { title: row.title, contentMd: row.content_md, rendered })
+  const metaHtml = m.postMeta
+  const postExtra = m.postHtml
 
   const res = await c.html(
-    page(
-      info,
-      `${row.title} · ${info.name}`,
+    await theme.render(
+      { site: info, title: `${row.title} · ${info.name}`, tokens: theme.tokens, headHtml: m.head, footerHtml: m.footer },
       <article>
         <h1>{row.title}</h1>
         <p class="meta">
           {new Date(row.published_at ?? row.updated_at).toLocaleDateString('zh-CN')} · {rendered.readingMinutes} 分钟阅读 ·{' '}
           {row.views + 1} 次浏览
+          {metaHtml && <span dangerouslySetInnerHTML={{ __html: ` ${metaHtml}` }} />}
         </p>
         {rendered.toc.length > 0 && (
           <nav class="toc">
@@ -152,6 +167,7 @@ publicSite.get('/post/:slug', async (c) => {
           </nav>
         )}
         <div dangerouslySetInnerHTML={{ __html: rendered.html }} />
+        {postExtra && <div dangerouslySetInnerHTML={{ __html: postExtra }} />}
       </article>,
     ),
   )
@@ -166,21 +182,21 @@ publicSite.get('/archive', async (c) => {
   if (cached) return cached
 
   const info = await siteInfo(c.env.DB)
+  const theme = await resolveTheme(c.env.DB)
   const { results } = await c.env.DB.prepare(
     "SELECT slug, title, published_at FROM blog_posts WHERE status = 'published' ORDER BY published_at DESC",
   ).all<{ slug: string; title: string; published_at: number | null }>()
-  const groups = new Map<string, { slug: string; title: string; at: number }[]>()
+  const groups = new Map<string, { slug: string; title: string }[]>()
   for (const p of results ?? []) {
     const at = p.published_at ?? 0
     const label = new Date(at).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long' })
     if (!groups.has(label)) groups.set(label, [])
-    groups.get(label)!.push({ slug: p.slug, title: p.title, at })
+    groups.get(label)!.push({ slug: p.slug, title: p.title })
   }
 
   const res = await c.html(
-    page(
-      info,
-      `归档 · ${info.name}`,
+    await theme.render(
+      { site: info, title: `归档 · ${info.name}`, tokens: theme.tokens },
       <div>
         <h1 class="page-title">归档</h1>
         {[...groups.entries()].map(([label, posts]) => (
@@ -209,9 +225,10 @@ publicSite.get('/tag/:slug', async (c) => {
   if (cached) return cached
 
   const info = await siteInfo(c.env.DB)
+  const theme = await resolveTheme(c.env.DB)
   const tag = await c.env.DB.prepare('SELECT name FROM blog_tags WHERE slug = ?').bind(tagSlug).first<{ name: string }>()
   if (!tag) {
-    return c.html(page(info, '404', <p>标签不存在。</p>), 404)
+    return c.html(await theme.render({ site: info, title: '404', tokens: theme.tokens }, <p>标签不存在。</p>), 404)
   }
   const { results } = await c.env.DB.prepare(
     `SELECT p.slug, p.title, p.published_at FROM blog_posts p
@@ -222,12 +239,11 @@ publicSite.get('/tag/:slug', async (c) => {
     .all<{ slug: string; title: string; published_at: number | null }>()
 
   const res = await c.html(
-    page(
-      info,
-      `标签「${tag.name}」 · ${info.name}`,
+    await theme.render(
+      { site: info, title: `标签「${tag.name}」 · ${info.name}`, tokens: theme.tokens },
       <div>
         <h1 class="page-title">标签「{tag.name}」</h1>
-        {(results ?? []).length === 0 && <p style={{ color: '#667085' }}>没有文章。</p>}
+        {(results ?? []).length === 0 && <p style={{ color: '#888' }}>没有文章。</p>}
         {(results ?? []).map((p) => (
           <div style={{ padding: '.2rem 0' }}>
             <a href={`/post/${p.slug}`}>{p.title}</a>
@@ -249,17 +265,19 @@ publicSite.get('/page/:slug', async (c) => {
   if (cached) return cached
 
   const info = await siteInfo(c.env.DB)
+  const theme = await resolveTheme(c.env.DB)
   const row = await c.env.DB.prepare('SELECT title, content_md FROM blog_pages WHERE slug = ?').bind(pageSlug).first<{
     title: string
     content_md: string
   }>()
-  if (!row) return c.html(page(info, '404', <p>页面不存在。</p>), 404)
+  if (!row) {
+    return c.html(await theme.render({ site: info, title: '404', tokens: theme.tokens }, <p>页面不存在。</p>), 404)
+  }
 
   const rendered = renderMarkdown(row.content_md)
   const res = await c.html(
-    page(
-      info,
-      `${row.title} · ${info.name}`,
+    await theme.render(
+      { site: info, title: `${row.title} · ${info.name}`, tokens: theme.tokens },
       <article>
         <h1>{row.title}</h1>
         <div dangerouslySetInnerHTML={{ __html: rendered.html }} />
@@ -272,7 +290,7 @@ publicSite.get('/page/:slug', async (c) => {
 
 // ---------------------------------------------------------------- RSS / sitemap
 
-const RSS_TYPES = { 'content-type': 'application/rss+xml; charset=utf-8', 'cache-control': 'public, max-age=600' }
+const RSS_HEADERS = { 'content-type': 'application/rss+xml; charset=utf-8', 'cache-control': 'public, max-age=600' }
 
 publicSite.get('/rss.xml', async (c) => {
   const info = await siteInfo(c.env.DB)
@@ -292,12 +310,11 @@ publicSite.get('/rss.xml', async (c) => {
     `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>${esc(info.name)}</title><link>${base}</link><description>${esc(
       info.description,
     )}</description>${items}</channel></rss>`,
-    { headers: RSS_TYPES },
+    { headers: RSS_HEADERS },
   )
 })
 
 publicSite.get('/sitemap.xml', async (c) => {
-  const info = await siteInfo(c.env.DB)
   const base = new URL(c.env.APP_PUBLIC_URL).toString()
   const { results } = await c.env.DB.prepare("SELECT slug, updated_at FROM blog_posts WHERE status = 'published'").all<{
     slug: string
@@ -310,9 +327,7 @@ publicSite.get('/sitemap.xml', async (c) => {
   const urls = ['/', '/archive', ...((results ?? []).map((p) => `/post/${p.slug}`)), ...((pages ?? []).map((p) => `/page/${p.slug}`))]
   const xml =
     `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` +
-    urls
-      .map((u) => `<url><loc>${base}${u.replace(/^\//, '')}</loc></url>`)
-      .join('') +
+    urls.map((u) => `<url><loc>${base}${u.replace(/^\//, '')}</loc></url>`).join('') +
     `</urlset>`
   return new Response(xml, { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=600' } })
 })

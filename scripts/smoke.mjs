@@ -418,6 +418,41 @@ async function main() {
     check('sitemap 输出', sitemap.status === 200 && smText.includes('/post/标签测试文') && smText.includes('/page/about'))
   }
 
+  // 主题系统：切换主题 + tokens 即时生效
+  {
+    const setTheme = await call('PUT', '/api/settings', {
+      body: { theme: { mode: 'builtin', id: 'gallery', tokens: { accent: '#0e7490', radius: 16, font: 'serif' } } },
+    })
+    check('保存主题配置', setTheme.res.status === 200)
+
+    const home = await fetch(`${BASE}/`)
+    const html = await home.text()
+    check(
+      '主题切换生效（tokens 写入 CSS）',
+      home.status === 200 && html.includes('--mb-accent:#0e7490') && html.includes('--mb-radius:16px') && html.includes('theme-gallery'),
+      `status=${home.status}`,
+    )
+    const badId = await call('PUT', '/api/settings', { body: { theme: { mode: 'builtin', id: '不存在' } } })
+    const badHome = await fetch(`${BASE}/`)
+    check('未知主题回退默认', badId.res.status === 200 && (await badHome.text()).includes('--mb-accent:#5b5bd6'))
+  }
+
+  // 插件池：启用后挂载点输出进页面
+  {
+    await call('PUT', '/api/settings', {
+      body: {
+        plugins: [
+          { id: 'reading-time', enabled: true },
+          { id: 'highlight', enabled: true, config: { theme: 'github' } },
+        ],
+      },
+    })
+    const page = await fetch(`${BASE}/post/标签测试文`)
+    const html = await page.text()
+    check('插件 head 注入（highlight 脚本）', html.includes('highlight.min.js'))
+    check('插件 meta 挂载（约 N 分钟）', html.includes('约') && html.includes('分钟'))
+  }
+
   // 素材联动（standalone：LocalAssetStore + 本域直链）
   {
     const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4])

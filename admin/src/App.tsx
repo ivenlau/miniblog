@@ -8,6 +8,7 @@ import { Button, Input, Spinner } from './components/ui'
 import { PostsPage } from './pages/PostsPage'
 import { EditorPage } from './pages/EditorPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { PluginsPage } from './pages/PluginsPage'
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
@@ -253,11 +254,16 @@ function Dashboard() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-sm font-medium">站点设置</h2>
-              <p className="mt-1 text-[13px] text-muted">站点信息与关于页</p>
+              <p className="mt-1 text-[13px] text-muted">站点信息、关于页、主题与插件</p>
             </div>
-            <Button variant="primary" size="sm" onClick={() => navigate('/admin/settings')}>
-              打开
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="primary" size="sm" onClick={() => navigate('/admin/plugins')}>
+                插件
+              </Button>
+              <Button size="sm" onClick={() => navigate('/admin/settings')}>
+                打开
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -294,6 +300,7 @@ function AdminRoutes() {
       <Route path="posts/new" element={<EditorPage />} />
       <Route path="posts/:id" element={<EditorPage />} />
       <Route path="settings" element={<SettingsPage />} />
+      <Route path="plugins" element={<PluginsPage />} />
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>
   )

@@ -10,6 +10,15 @@ import { useToast } from '../../state/toast'
 
 const errCode = (err: unknown) => (err instanceof ApiError ? err.code : 'UNKNOWN')
 
+/** 内置页面预设（下拉直选）；自定义选项走输入框 */
+const NAV_PRESETS = [
+  { value: '/', labelKey: 'settings.blog.navHome', needsAbout: false },
+  { value: '/archive', labelKey: 'settings.blog.navArchive', needsAbout: false },
+  { value: '/tags', labelKey: 'settings.blog.navTags', needsAbout: false },
+  { value: '/page/about', labelKey: 'settings.blog.navAbout', needsAbout: true },
+] as const
+const NAV_CUSTOM = '__custom__'
+
 /**
  * 博客设置：站点信息（含导航链接 site.nav）+ 关于页。
  * 注意 PUT /api/settings 的 site 是整块 JSON，必须带完整对象回写，否则其他字段丢失。
@@ -69,6 +78,8 @@ export function BlogSection() {
 
   const nav = site.nav ?? []
   const setNav = (items: NavItem[]) => setSite({ ...site, nav: items })
+  // 关于页存在时，「关于页」才出现在预设下拉里
+  const aboutExists = !!aboutQuery.data && (!!aboutQuery.data.title || !!aboutQuery.data.contentMd)
 
   return (
     <div>
@@ -107,12 +118,32 @@ export function BlogSection() {
                   value={item.label}
                   onChange={(e) => setNav(nav.map((n, j) => (j === i ? { ...n, label: e.target.value } : n)))}
                 />
-                <div className="min-w-0 flex-1">
-                  <Input
-                    placeholder={t('settings.blog.navHref')}
-                    value={item.href}
-                    onChange={(e) => setNav(nav.map((n, j) => (j === i ? { ...n, href: e.target.value } : n)))}
-                  />
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  {/* 默认页面下拉 + 自定义输入，免去查地址 */}
+                  <select
+                    className="h-10 shrink-0 rounded-xl border border-line bg-surface px-2 text-[13px] text-text"
+                    value={NAV_PRESETS.some((p) => p.value === item.href) ? item.href : NAV_CUSTOM}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      // 切到自定义时清空，从输入框重新填写；选预设直接落地址
+                      setNav(nav.map((n, j) => (j === i ? { ...n, href: v === NAV_CUSTOM ? '' : v } : n)))
+                    }}
+                  >
+                    {NAV_PRESETS.filter((p) => !p.needsAbout || aboutExists).map((p) => (
+                      <option key={p.value} value={p.value}>
+                        {t(p.labelKey)}
+                      </option>
+                    ))}
+                    <option value={NAV_CUSTOM}>{t('settings.blog.navCustom')}</option>
+                  </select>
+                  <div className="min-w-0 flex-1">
+                    <Input
+                      placeholder={t('settings.blog.navHref')}
+                      value={item.href}
+                      disabled={NAV_PRESETS.some((p) => p.value === item.href)}
+                      onChange={(e) => setNav(nav.map((n, j) => (j === i ? { ...n, href: e.target.value } : n)))}
+                    />
+                  </div>
                 </div>
                 <Button
                   variant="ghost"

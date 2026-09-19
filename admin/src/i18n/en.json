@@ -204,14 +204,19 @@
       "siteDescription": "Short description (shown in the header)",
       "siteFooter": "Footer text (auto copyright if empty)",
       "navLinks": "Navigation links",
-      "navLinksHint": "Empty = default nav (Home / Archive / Tags, plus About when it exists). Up to 8 links.",
+      "navLinksHint": "Pick a built-in page from the dropdown, or choose “Custom…” for any URL (starting with / or https://). Empty = default nav. Up to 8 links.",
       "navAdd": "Add link",
       "navLabel": "Label",
       "navHref": "URL (starts with / or https://)",
       "aboutPage": "About page (/page/about)",
       "aboutTitle": "Page title",
       "savedSite": "Site settings saved",
-      "savedAbout": "About page saved"
+      "savedAbout": "About page saved",
+      "navHome": "Home",
+      "navArchive": "Archive",
+      "navTags": "Tags",
+      "navAbout": "About page",
+      "navCustom": "Custom…"
     },
     "theme": {
       "title": "Blog theme",

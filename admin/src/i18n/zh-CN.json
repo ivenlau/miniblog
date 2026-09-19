@@ -200,14 +200,19 @@
       "siteDescription": "一句话描述（显示在页头）",
       "siteFooter": "页脚文字（留空自动生成版权）",
       "navLinks": "导航链接",
-      "navLinksHint": "留空使用默认导航（首页 / 归档 / 标签，有关于页时自动加上）。最多 8 条。",
+      "navLinksHint": "下拉可直接选默认页面，选「自定义…」填任意地址（/ 开头或 https://）。留空 = 使用默认导航。最多 8 条。",
       "navAdd": "添加链接",
       "navLabel": "名称",
       "navHref": "链接（/ 开头或 https://）",
       "aboutPage": "关于页（/page/about）",
       "aboutTitle": "页面标题",
       "savedSite": "站点设置已保存",
-      "savedAbout": "关于页已保存"
+      "savedAbout": "关于页已保存",
+      "navHome": "首页",
+      "navArchive": "归档",
+      "navTags": "标签",
+      "navAbout": "关于页",
+      "navCustom": "自定义…"
     },
     "theme": {
       "title": "博客主题",

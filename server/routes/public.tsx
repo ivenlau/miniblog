@@ -153,6 +153,8 @@ publicSite.get('/', async (c) => {
      WHERE status = 'published' ORDER BY pinned DESC, published_at DESC LIMIT 50`,
   ).all<PostRow>()
   const posts = results ?? []
+  // 封面卡片仅相册封面主题展示（杂志/经典保持内容优先的文字流）
+  const showListCover = theme.mode === 'builtin' && theme.themeId === 'gallery'
 
   // 模板主题：index.liquid 全页渲染
   if (theme.mode === 'custom' && theme.themeId) {
@@ -175,6 +177,11 @@ publicSite.get('/', async (c) => {
         {posts.length === 0 && <p style={{ color: '#888' }}>还没有文章。</p>}
         {posts.map((p) => (
           <div class="post">
+            {showListCover && p.cover_url && (
+              <a href={`/post/${p.slug}`} class="post-cover-link">
+                <img src={p.cover_url} alt="" loading="lazy" />
+              </a>
+            )}
             <a href={`/post/${p.slug}`}>
               <h2>
                 {p.pinned ? '📌 ' : ''}
@@ -221,6 +228,7 @@ publicSite.get('/post/:slug', async (c) => {
       path,
       post: {
         title: row.title,
+        cover: row.cover_url,
         html: renderMarkdown(row.content_md).html,
         date: fmtDate(row.published_at ?? row.updated_at),
         views: row.views + 1,
@@ -243,6 +251,7 @@ publicSite.get('/post/:slug', async (c) => {
       { site: info, title: `${row.title} · ${info.name}`, tokens: theme.tokens, path, headHtml: m.head, footerHtml: m.footer },
       <article>
         <h1>{row.title}</h1>
+        {row.cover_url && <img class="post-hero" src={row.cover_url} alt="" />}
         <p class="meta">
           {fmtDate(row.published_at ?? row.updated_at)} · {row.views + 1} 次浏览
           {metaHtml && <span dangerouslySetInnerHTML={{ __html: ` ${metaHtml}` }} />}

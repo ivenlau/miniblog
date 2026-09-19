@@ -42,12 +42,27 @@ await page.waitForURL('**/admin/', { timeout: 15000 }).catch(() => {})
 
 // ---- 准备一篇已发布文章 + 关于页 + 自定义导航（走 API，共享 context 会话）----
 const H = { 'x-miniblog': '1', 'content-type': 'application/json' }
+// 生成一张真实 PNG 作封面（渐变色块）
+const coverPage = await context.newPage()
+await coverPage.setContent(
+  '<body style="margin:0"><div style="width:640px;height:360px;background:linear-gradient(135deg,#5b5bd6,#0e7490 60%,#f59e0b)"></div></body>',
+)
+const coverBuf = await coverPage.locator('div').screenshot()
+await coverPage.close()
+const coverUp = await context.request.post(`${BASE}/api/upload?name=cover.png&mime=image/png`, {
+  headers: { 'x-miniblog': '1', 'content-type': 'image/png' },
+  data: coverBuf,
+})
+const coverUrl = (await coverUp.json())?.url
+console.log(`✓ 封面图已上传: ${coverUrl}`)
+
 const pub = await context.request.post(`${BASE}/api/posts`, {
   headers: H,
   data: {
     title: '你好 Miniblog',
     slug: 'hello-miniblog',
     summary: '第一篇文章',
+    coverUrl,
     contentMd:
       '# 你好\n\n这是**第一篇**文章，这里有一个[示例链接](https://example.com)。\n\n## 小标题\n\n- 列表项一\n- 列表项二\n\n> 引用\n\n```js\nconsole.log(1)\n```\n\n$$E=mc^2$$',
     tags: ['随笔'],
@@ -159,6 +174,20 @@ await page.click('#mb-toc-btn')
 await page.waitForTimeout(400)
 await page.screenshot({ path: '/tmp/mb-shots/17-toc-open.png' })
 console.log('✓ 17-toc-open')
+
+// gallery 主题下的首页封面卡片
+await context.request.put(`${BASE}/api/settings`, {
+  headers: H,
+  data: { theme: { mode: 'builtin', id: 'gallery', tokens: {} } },
+})
+await page.goto(`${BASE}/`, { waitUntil: 'networkidle' })
+await page.waitForTimeout(300)
+await page.screenshot({ path: '/tmp/mb-shots/20-home-gallery.png' })
+console.log('✓ 20-home-gallery')
+await context.request.put(`${BASE}/api/settings`, {
+  headers: H,
+  data: { theme: { mode: 'builtin', id: 'magazine', tokens: {} } },
+})
 
 const mobile = await context.newPage()
 await mobile.setViewportSize({ width: 375, height: 812 })

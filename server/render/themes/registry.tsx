@@ -85,6 +85,9 @@ footer.site{max-width:var(--mb-width);margin:2rem auto 0;padding:1.25rem;color:#
 .page-title{font-size:1.5rem;margin:0 0 1.5rem}
 article h1{font-size:1.85rem;margin:.2rem 0 1rem}
 article img{max-width:100%;border-radius:var(--mb-radius)}
+img.post-hero{display:block;width:100%;border-radius:var(--mb-radius);margin:.3rem 0 1.1rem}
+.post-cover-link{display:block;margin-bottom:.6rem}
+.post-cover-link img{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:calc(var(--mb-radius) - 4px)}
 article a{color:var(--mb-accent);text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px}
 article a:hover{opacity:.75}
 article pre{overflow-x:auto;padding:1rem;background:#1d212b;color:#e7e9ee;border-radius:var(--mb-radius);font-size:.9rem}

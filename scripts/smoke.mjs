@@ -391,10 +391,15 @@ async function main() {
     check('保存关于页', about.res.status === 200)
 
     const post = await call('POST', '/api/posts', {
-      body: { title: '标签测试文', contentMd: '内容', tags: ['旅行'], summary: '' },
+      body: { title: '标签测试文', contentMd: '内容', tags: ['旅行'], summary: '', coverUrl: 'https://example.com/cover.png' },
     })
     const pub = await call('POST', `/api/posts/${post.json?.id}/publish`)
     check('发布带标签文章', pub.res.status === 200)
+    const heroHtml = await (await fetch(`${BASE}/post/标签测试文`)).text()
+    check(
+      '文章页封面 hero',
+      heroHtml.includes('post-hero') && heroHtml.includes('src="https://example.com/cover.png"'),
+    )
 
     const home = await fetch(`${BASE}/`)
     check('首页显示站点名', home.status === 200 && (await home.text()).includes('我的小站'))
@@ -452,6 +457,7 @@ async function main() {
       home.status === 200 && html.includes('--mb-accent:#0e7490') && html.includes('--mb-radius:16px') && html.includes('theme-gallery'),
       `status=${home.status}`,
     )
+    check('gallery 首页封面卡片', html.includes('post-cover-link') && html.includes('example.com/cover.png'))
     const badId = await call('PUT', '/api/settings', { body: { theme: { mode: 'builtin', id: '不存在' } } })
     const badHome = await fetch(`${BASE}/`)
     check('未知主题回退默认', badId.res.status === 200 && (await badHome.text()).includes('--mb-accent:#5b5bd6'))
@@ -538,7 +544,9 @@ async function main() {
     // 回退内置主题
     await call('PUT', '/api/settings', { body: { theme: { mode: 'builtin', id: 'magazine' } } })
     const back = await fetch(`${BASE}/`)
-    check('切回内置主题', back.status === 200 && (await back.text()).includes('--mb-accent'))
+    const backHtml = await back.text()
+    check('切回内置主题', back.status === 200 && backHtml.includes('--mb-accent'))
+    check('magazine 首页不显示列表封面', !backHtml.includes('example.com/cover.png'))
 
     // 素材直链（M2 回归）：上传后本域直链可访问
     const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4])

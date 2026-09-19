@@ -7,6 +7,7 @@ import { browserSupportsWebAuthn, loginWithPasskey, setupPasskey } from './lib/p
 import { Button, Input, Spinner } from './components/ui'
 import { PostsPage } from './pages/PostsPage'
 import { EditorPage } from './pages/EditorPage'
+import { SettingsPage } from './pages/SettingsPage'
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
@@ -236,15 +237,28 @@ function Dashboard() {
           退出
         </Button>
       </div>
-      <div className="rounded-2xl border border-line bg-surface p-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-medium">文章管理</h2>
-            <p className="mt-1 text-[13px] text-muted">写作、发布、标签与归档</p>
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="rounded-2xl border border-line bg-surface p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-medium">文章管理</h2>
+              <p className="mt-1 text-[13px] text-muted">写作、发布、标签与归档</p>
+            </div>
+            <Button variant="primary" size="sm" onClick={() => navigate('/admin/posts')}>
+              打开
+            </Button>
           </div>
-          <Button variant="primary" size="sm" onClick={() => navigate('/admin/posts')}>
-            打开
-          </Button>
+        </div>
+        <div className="rounded-2xl border border-line bg-surface p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-medium">站点设置</h2>
+              <p className="mt-1 text-[13px] text-muted">站点信息与关于页</p>
+            </div>
+            <Button variant="primary" size="sm" onClick={() => navigate('/admin/settings')}>
+              打开
+            </Button>
+          </div>
         </div>
       </div>
     </div>
@@ -279,6 +293,7 @@ function AdminRoutes() {
       <Route path="posts" element={<PostsPage />} />
       <Route path="posts/new" element={<EditorPage />} />
       <Route path="posts/:id" element={<EditorPage />} />
+      <Route path="settings" element={<SettingsPage />} />
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>
   )

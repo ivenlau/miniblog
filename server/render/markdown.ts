@@ -82,15 +82,15 @@ export function renderMarkdown(source: string): RenderedPost {
   return { html, toc, readingMinutes, excerpt }
 }
 
-/** 由标题推导 slug；纯 CJK 标题退化为短随机 */
+/** 由标题推导 slug：保留中文（URL 自动编码，SEO 友好）；无有效字符时退化为短随机 */
 export function slugFromTitle(title: string): string {
-  const ascii = title
+  const slug = title
     .toLowerCase()
-    .replace(/[^\w\s-]/g, '')
+    .replace(/[^\w一-龥\s-]/g, '')
     .trim()
     .replace(/\s+/g, '-')
     .replace(/^-+|-+$/g, '')
-  if (ascii.length >= 3) return ascii.slice(0, 64)
+  if (slug.length >= 1) return slug.slice(0, 64)
   const rand = crypto.randomUUID().replace(/-/g, '').slice(0, 8)
   return `p-${rand}`
 }

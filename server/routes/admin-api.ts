@@ -97,6 +97,14 @@ async function uniquePostSlug(db: AppEnv['Bindings']['DB'], base: string, exclud
   }
 }
 
+async function tagSlugsOfPost(db: AppEnv['Bindings']['DB'], postId: string): Promise<string[]> {
+  const { results } = await db
+    .prepare('SELECT t.slug FROM blog_tags t JOIN blog_post_tags pt ON pt.tag_id = t.id WHERE pt.post_id = ?')
+    .bind(postId)
+    .all<{ slug: string }>()
+  return (results ?? []).map((r) => r.slug)
+}
+
 async function getPost(db: AppEnv['Bindings']['DB'], id: string): Promise<PostRow> {
   const row = await db.prepare('SELECT * FROM blog_posts WHERE id = ?').bind(id).first<PostRow>()
   if (!row) throw Errors.notFound('POST_NOT_FOUND')
@@ -200,8 +208,9 @@ adminApi.put('/posts/:id', async (c) => {
 
 adminApi.delete('/posts/:id', async (c) => {
   const row = await getPost(c.env.DB, c.req.param('id'))
+  const tags = row.status === 'published' ? await tagSlugsOfPost(c.env.DB, row.id) : []
   await c.env.DB.prepare('DELETE FROM blog_posts WHERE id = ?').bind(row.id).run()
-  if (row.status === 'published') await purgeBlogCache(c.env, { slug: row.slug })
+  if (row.status === 'published') await purgeBlogCache(c.env, { slug: row.slug, tagSlugs: tags })
   return c.json({ ok: true })
 })
 
@@ -213,13 +222,75 @@ adminApi.post('/posts/:id/publish', async (c) => {
   )
     .bind(now, now, row.id)
     .run()
-  await purgeBlogCache(c.env)
+  await purgeBlogCache(c.env, { tagSlugs: await tagSlugsOfPost(c.env.DB, row.id) })
   return c.json({ ok: true })
 })
 
 adminApi.post('/posts/:id/unpublish', async (c) => {
   const row = await getPost(c.env.DB, c.req.param('id'))
   await c.env.DB.prepare('UPDATE blog_posts SET status = "draft", updated_at = ? WHERE id = ?').bind(Date.now(), row.id).run()
-  await purgeBlogCache(c.env, { slug: row.slug })
+  await purgeBlogCache(c.env, { slug: row.slug, tagSlugs: await tagSlugsOfPost(c.env.DB, row.id) })
+  return c.json({ ok: true })
+})
+
+// ---------------------------------------------------------------- 页面（about 等）
+
+adminApi.get('/pages/:slug', async (c) => {
+  const slug = c.req.param('slug')
+  const row = await c.env.DB.prepare('SELECT slug, title, content_md, updated_at FROM blog_pages WHERE slug = ?')
+    .bind(slug)
+    .first<{ slug: string; title: string; content_md: string; updated_at: number }>()
+  if (!row) return c.json({ slug, title: '', contentMd: '', updatedAt: null })
+  return c.json({ slug: row.slug, title: row.title, contentMd: row.content_md, updatedAt: row.updated_at })
+})
+
+adminApi.put('/pages/:slug', async (c) => {
+  const slug = c.req.param('slug')
+  const body = await readJson(c)
+  const title = typeof body.title === 'string' && body.title.trim() ? body.title.trim() : slug
+  const contentMd = typeof body.contentMd === 'string' ? body.contentMd : ''
+  const now = Date.now()
+  await c.env.DB.prepare(
+    "INSERT INTO blog_pages (id, slug, title, content_md, updated_at) VALUES (?,?,?,?,?) "
+      + "ON CONFLICT(slug) DO UPDATE SET title = excluded.title, content_md = excluded.content_md, updated_at = excluded.updated_at",
+  )
+    .bind(ulid(), slug, title, contentMd, now)
+    .run()
+  await purgeBlogCache(c.env, { pageSlug: slug })
+  return c.json({ slug, title, contentMd, updatedAt: now })
+})
+
+adminApi.delete('/pages/:slug', async (c) => {
+  await c.env.DB.prepare('DELETE FROM blog_pages WHERE slug = ?').bind(c.req.param('slug')).run()
+  await purgeBlogCache(c.env, { pageSlug: c.req.param('slug') })
+  return c.json({ ok: true })
+})
+
+// ---------------------------------------------------------------- 站点设置
+
+adminApi.get('/settings', async (c) => {
+  const { results } = await c.env.DB.prepare('SELECT key, value FROM blog_settings').all<{ key: string; value: string }>()
+  const out: Record<string, unknown> = {}
+  for (const r of results ?? []) {
+    try {
+      out[r.key] = JSON.parse(r.value)
+    } catch {
+      out[r.key] = r.value
+    }
+  }
+  return c.json(out)
+})
+
+adminApi.put('/settings', async (c) => {
+  const body = (await readJson(c)) as Record<string, unknown>
+  for (const [key, value] of Object.entries(body)) {
+    if (!['site', 'theme', 'plugins'].includes(key)) continue
+    await c.env.DB.prepare(
+      'INSERT INTO blog_settings (key, value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+    )
+      .bind(key, JSON.stringify(value))
+      .run()
+  }
+  await purgeBlogCache(c.env)
   return c.json({ ok: true })
 })

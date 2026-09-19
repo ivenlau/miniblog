@@ -15,9 +15,13 @@ export async function putCached(env: Env, path: string, res: Response): Promise<
 }
 
 /** 清除首页/归档/订阅与指定文章、标签页的缓存 */
-export async function purgeBlogCache(env: Env, opts: { slug?: string; tagSlug?: string } = {}): Promise<void> {
+export async function purgeBlogCache(
+  env: Env,
+  opts: { slug?: string; tagSlugs?: string[]; pageSlug?: string } = {},
+): Promise<void> {
   const paths = ['/', '/archive', '/rss.xml', '/sitemap.xml']
   if (opts.slug) paths.push(`/post/${opts.slug}`)
-  if (opts.tagSlug) paths.push(`/tag/${opts.tagSlug}`)
+  for (const t of opts.tagSlugs ?? []) paths.push(`/tag/${t}`)
+  if (opts.pageSlug) paths.push(`/page/${opts.pageSlug}`)
   await Promise.all(paths.map((p) => caches.default.delete(key(env, p))))
 }

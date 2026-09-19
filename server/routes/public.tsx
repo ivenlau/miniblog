@@ -1,9 +1,9 @@
 import { Hono } from 'hono'
 import type { AppEnv } from '../lib/env'
-import { getCached, putCached } from '../lib/cache'
+import { getCached, putCached, purgeBlogCache } from '../lib/cache'
 import { renderMarkdown } from '../render/markdown'
 
-/** 公开站 SSR（首页/文章页；归档、标签、RSS 在 M1-2） */
+/** 公开站 SSR：首页 / 文章 / 归档 / 标签 / 页面 / RSS / sitemap */
 export const publicSite = new Hono<AppEnv>()
 
 type PostRow = {
@@ -19,17 +19,26 @@ type PostRow = {
   updated_at: number
 }
 
-async function siteName(db: AppEnv['Bindings']['DB']): Promise<string> {
+type SiteInfo = { name: string; description: string; footer: string }
+
+const DEFAULT_SITE: SiteInfo = { name: 'Miniblog', description: '', footer: '' }
+
+async function siteInfo(db: AppEnv['Bindings']['DB']): Promise<SiteInfo> {
   const s = await db.prepare("SELECT value FROM blog_settings WHERE key = 'site'").first<{ value: string }>()
-  if (!s) return 'Miniblog'
+  if (!s) return DEFAULT_SITE
   try {
-    return (JSON.parse(s.value) as { name?: string }).name ?? 'Miniblog'
+    const parsed = JSON.parse(s.value) as Partial<SiteInfo>
+    return { name: parsed.name || DEFAULT_SITE.name, description: parsed.description ?? '', footer: parsed.footer ?? '' }
   } catch {
-    return 'Miniblog'
+    return DEFAULT_SITE
   }
 }
 
-function page(title: string, body: unknown) {
+function esc(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+function page(info: SiteInfo, title: string, body: unknown) {
   return (
     <html lang="zh-CN">
       <head>
@@ -43,37 +52,45 @@ a{color:inherit;text-decoration:none}a:hover{color:#5b5bd6}
 .post{margin-bottom:2.5rem}.post h2{margin:0 0 .25rem;font-size:1.35rem}.meta{color:#667085;font-size:.85rem}
 article h1{font-size:1.9rem}article img{max-width:100%;border-radius:12px}article pre{overflow-x:auto;padding:1rem;background:#1d212b;color:#e7e9ee;border-radius:12px}
 article code{background:#eceef2;padding:.1em .35em;border-radius:6px}article pre code{background:none;padding:0}
-.toc{background:#fff;border:1px solid #e4e7ec;border-radius:12px;padding:1rem;margin:1.5rem 0}.toc a{display:block;padding:.15rem 0;font-size:.9rem}`}
+.toc{background:#fff;border:1px solid #e4e7ec;border-radius:12px;padding:1rem;margin:1.5rem 0}.toc a{display:block;padding:.15rem 0;font-size:.9rem}
+header.site{margin-bottom:2.5rem}header.site .desc{color:#667085;font-size:.9rem;margin-top:.25rem}
+footer.site{margin-top:3rem;border-top:1px solid #e4e7ec;padding-top:1rem;color:#667085;font-size:.85rem}
+h1.page-title{font-size:1.5rem;margin-bottom:1.5rem}`}
         </style>
       </head>
       <body>
         <main>
-          <header style={{ marginBottom: '2.5rem' }}>
-            <a href="/" style={{ fontWeight: 600 }}>
-              Miniblog
+          <header class="site">
+            <a href="/" style={{ fontWeight: 600, fontSize: '1.05rem' }}>
+              {info.name}
             </a>
+            {info.description && <p class="desc">{info.description}</p>}
           </header>
           {body}
+          <footer class="site">{info.footer || `© ${new Date().getFullYear()} ${info.name}`}</footer>
         </main>
       </body>
     </html>
   )
 }
 
+// ---------------------------------------------------------------- 首页
+
 publicSite.get('/', async (c) => {
   const cached = await getCached(c.env, '/')
   if (cached) return cached
 
+  const info = await siteInfo(c.env.DB)
   const { results } = await c.env.DB.prepare(
-    `SELECT slug, title, summary, cover_url, pinned, published_at FROM blog_posts
+    `SELECT slug, title, summary, cover_url, pinned, published_at, updated_at FROM blog_posts
      WHERE status = 'published' ORDER BY pinned DESC, published_at DESC LIMIT 50`,
   ).all<PostRow>()
   const posts = results ?? []
-  const name = await siteName(c.env.DB)
 
   const res = await c.html(
     page(
-      name,
+      info,
+      info.name,
       <div>
         {posts.length === 0 && <p style={{ color: '#667085' }}>还没有文章。</p>}
         {posts.map((p) => (
@@ -95,6 +112,8 @@ publicSite.get('/', async (c) => {
   return res
 })
 
+// ---------------------------------------------------------------- 文章页
+
 publicSite.get('/post/:slug', async (c) => {
   const path = `/post/${c.req.param('slug')}`
   const cached = await getCached(c.env, path)
@@ -103,15 +122,20 @@ publicSite.get('/post/:slug', async (c) => {
   const row = await c.env.DB.prepare("SELECT * FROM blog_posts WHERE slug = ? AND status = 'published'")
     .bind(c.req.param('slug'))
     .first<PostRow>()
-  if (!row) return c.html(page('404', <p>文章不存在或未发布。</p>), 404)
+  if (!row) {
+    const info = await siteInfo(c.env.DB)
+    return c.html(page(info, '404', <p>文章不存在或未发布。</p>), 404)
+  }
+
 
   await c.env.DB.prepare('UPDATE blog_posts SET views = views + 1 WHERE id = ?').bind(row.id).run()
   const rendered = renderMarkdown(row.content_md)
-  const name = await siteName(c.env.DB)
+  const info = await siteInfo(c.env.DB)
 
   const res = await c.html(
     page(
-      `${row.title} · ${name}`,
+      info,
+      `${row.title} · ${info.name}`,
       <article>
         <h1>{row.title}</h1>
         <p class="meta">
@@ -133,4 +157,162 @@ publicSite.get('/post/:slug', async (c) => {
   )
   await putCached(c.env, path, res)
   return res
+})
+
+// ---------------------------------------------------------------- 归档
+
+publicSite.get('/archive', async (c) => {
+  const cached = await getCached(c.env, '/archive')
+  if (cached) return cached
+
+  const info = await siteInfo(c.env.DB)
+  const { results } = await c.env.DB.prepare(
+    "SELECT slug, title, published_at FROM blog_posts WHERE status = 'published' ORDER BY published_at DESC",
+  ).all<{ slug: string; title: string; published_at: number | null }>()
+  const groups = new Map<string, { slug: string; title: string; at: number }[]>()
+  for (const p of results ?? []) {
+    const at = p.published_at ?? 0
+    const label = new Date(at).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long' })
+    if (!groups.has(label)) groups.set(label, [])
+    groups.get(label)!.push({ slug: p.slug, title: p.title, at })
+  }
+
+  const res = await c.html(
+    page(
+      info,
+      `归档 · ${info.name}`,
+      <div>
+        <h1 class="page-title">归档</h1>
+        {[...groups.entries()].map(([label, posts]) => (
+          <div style={{ marginBottom: '2rem' }}>
+            <h2 style={{ fontSize: '1.05rem' }}>{label}</h2>
+            {posts.map((p) => (
+              <div style={{ padding: '.2rem 0' }}>
+                <a href={`/post/${p.slug}`}>{p.title}</a>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>,
+    ),
+  )
+  await putCached(c.env, '/archive', res)
+  return res
+})
+
+// ---------------------------------------------------------------- 标签
+
+publicSite.get('/tag/:slug', async (c) => {
+  const tagSlug = c.req.param('slug')
+  const path = `/tag/${tagSlug}`
+  const cached = await getCached(c.env, path)
+  if (cached) return cached
+
+  const info = await siteInfo(c.env.DB)
+  const tag = await c.env.DB.prepare('SELECT name FROM blog_tags WHERE slug = ?').bind(tagSlug).first<{ name: string }>()
+  if (!tag) {
+    return c.html(page(info, '404', <p>标签不存在。</p>), 404)
+  }
+  const { results } = await c.env.DB.prepare(
+    `SELECT p.slug, p.title, p.published_at FROM blog_posts p
+     JOIN blog_post_tags pt ON pt.post_id = p.id JOIN blog_tags t ON t.id = pt.tag_id
+     WHERE t.slug = ? AND p.status = 'published' ORDER BY p.published_at DESC`,
+  )
+    .bind(tagSlug)
+    .all<{ slug: string; title: string; published_at: number | null }>()
+
+  const res = await c.html(
+    page(
+      info,
+      `标签「${tag.name}」 · ${info.name}`,
+      <div>
+        <h1 class="page-title">标签「{tag.name}」</h1>
+        {(results ?? []).length === 0 && <p style={{ color: '#667085' }}>没有文章。</p>}
+        {(results ?? []).map((p) => (
+          <div style={{ padding: '.2rem 0' }}>
+            <a href={`/post/${p.slug}`}>{p.title}</a>
+          </div>
+        ))}
+      </div>,
+    ),
+  )
+  await putCached(c.env, path, res)
+  return res
+})
+
+// ---------------------------------------------------------------- 独立页面
+
+publicSite.get('/page/:slug', async (c) => {
+  const pageSlug = c.req.param('slug')
+  const path = `/page/${pageSlug}`
+  const cached = await getCached(c.env, path)
+  if (cached) return cached
+
+  const info = await siteInfo(c.env.DB)
+  const row = await c.env.DB.prepare('SELECT title, content_md FROM blog_pages WHERE slug = ?').bind(pageSlug).first<{
+    title: string
+    content_md: string
+  }>()
+  if (!row) return c.html(page(info, '404', <p>页面不存在。</p>), 404)
+
+  const rendered = renderMarkdown(row.content_md)
+  const res = await c.html(
+    page(
+      info,
+      `${row.title} · ${info.name}`,
+      <article>
+        <h1>{row.title}</h1>
+        <div dangerouslySetInnerHTML={{ __html: rendered.html }} />
+      </article>,
+    ),
+  )
+  await putCached(c.env, path, res)
+  return res
+})
+
+// ---------------------------------------------------------------- RSS / sitemap
+
+const RSS_TYPES = { 'content-type': 'application/rss+xml; charset=utf-8', 'cache-control': 'public, max-age=600' }
+
+publicSite.get('/rss.xml', async (c) => {
+  const info = await siteInfo(c.env.DB)
+  const base = new URL(c.env.APP_PUBLIC_URL).toString()
+  const { results } = await c.env.DB.prepare(
+    "SELECT slug, title, summary, published_at FROM blog_posts WHERE status = 'published' ORDER BY published_at DESC LIMIT 20",
+  ).all<{ slug: string; title: string; summary: string; published_at: number | null }>()
+  const items = (results ?? [])
+    .map(
+      (p) =>
+        `<item><title>${esc(p.title)}</title><link>${base}post/${p.slug}</link><guid>${base}post/${p.slug}</guid><pubDate>${new Date(
+          p.published_at ?? 0,
+        ).toUTCString()}</pubDate><description>${esc(p.summary)}</description></item>`,
+    )
+    .join('')
+  return new Response(
+    `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>${esc(info.name)}</title><link>${base}</link><description>${esc(
+      info.description,
+    )}</description>${items}</channel></rss>`,
+    { headers: RSS_TYPES },
+  )
+})
+
+publicSite.get('/sitemap.xml', async (c) => {
+  const info = await siteInfo(c.env.DB)
+  const base = new URL(c.env.APP_PUBLIC_URL).toString()
+  const { results } = await c.env.DB.prepare("SELECT slug, updated_at FROM blog_posts WHERE status = 'published'").all<{
+    slug: string
+    updated_at: number
+  }>()
+  const { results: pages } = await c.env.DB.prepare('SELECT slug, updated_at FROM blog_pages').all<{
+    slug: string
+    updated_at: number
+  }>()
+  const urls = ['/', '/archive', ...((results ?? []).map((p) => `/post/${p.slug}`)), ...((pages ?? []).map((p) => `/page/${p.slug}`))]
+  const xml =
+    `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` +
+    urls
+      .map((u) => `<url><loc>${base}${u.replace(/^\//, '')}</loc></url>`)
+      .join('') +
+    `</urlset>`
+  return new Response(xml, { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=600' } })
 })

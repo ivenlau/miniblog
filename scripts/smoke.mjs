@@ -378,6 +378,46 @@ async function main() {
     check('删除文章', del.res.status === 200)
   }
 
+  // 站点设置 + 关于页 + 归档/标签/RSS/sitemap
+  {
+    const settings = await call('PUT', '/api/settings', {
+      body: { site: { name: '我的小站', description: '测试博客', footer: 'powered by miniblog' } },
+    })
+    check('保存站点设置', settings.res.status === 200)
+
+    const about = await call('PUT', '/api/pages/about', { body: { title: '关于本站', contentMd: '# 关于\n\n这里是的介绍。' } })
+    check('保存关于页', about.res.status === 200)
+
+    const post = await call('POST', '/api/posts', {
+      body: { title: '标签测试文', contentMd: '内容', tags: ['旅行'], summary: '' },
+    })
+    const pub = await call('POST', `/api/posts/${post.json?.id}/publish`)
+    check('发布带标签文章', pub.res.status === 200)
+
+    const home = await fetch(`${BASE}/`)
+    check('首页显示站点名', home.status === 200 && (await home.text()).includes('我的小站'))
+
+    const archive = await fetch(`${BASE}/archive`)
+    check('归档页', archive.status === 200 && (await archive.text()).includes('标签测试文'))
+
+    const tagPage = await fetch(`${BASE}/tag/旅行`)
+    check('标签页（CJK slug）', tagPage.status === 200 && (await tagPage.text()).includes('标签测试文'))
+
+    const aboutPage = await fetch(`${BASE}/page/about`)
+    check('关于页 SSR', aboutPage.status === 200 && (await aboutPage.text()).includes('这里是的介绍'))
+
+    const rss = await fetch(`${BASE}/rss.xml`)
+    const rssText = await rss.text()
+    check(
+      'RSS 输出',
+      rss.status === 200 && rssText.includes('<rss version="2.0">') && rssText.includes('标签测试文') && rss.headers.get('content-type')?.includes('rss+xml'),
+    )
+
+    const sitemap = await fetch(`${BASE}/sitemap.xml`)
+    const smText = await sitemap.text()
+    check('sitemap 输出', sitemap.status === 200 && smText.includes('/post/标签测试文') && smText.includes('/page/about'))
+  }
+
   // 设备列表
   {
     const sessions = await call('GET', '/api/auth/sessions')

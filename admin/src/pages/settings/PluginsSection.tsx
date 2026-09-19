@@ -8,6 +8,46 @@ import { useToast } from '../../state/toast'
 
 const errCode = (err: unknown) => (err instanceof ApiError ? err.code : 'UNKNOWN')
 
+/** 代码高亮常用主题（值为 highlight.js styles/{name}.min.css 的名称），另支持自定义 */
+const HIGHLIGHT_LIGHT_THEMES = ['github', 'atom-one-light', 'vs', 'xcode'] as const
+const HIGHLIGHT_DARK_THEMES = ['github-dark', 'atom-one-dark', 'nord', 'dracula', 'monokai', 'tokyo-night-dark', 'vs2015'] as const
+const THEME_CUSTOM = '__custom__'
+
+/** highlight 的 theme 字段：常用主题下拉 + 自定义输入 */
+function HighlightThemeField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { t } = useTranslation()
+  const all = [...HIGHLIGHT_LIGHT_THEMES, ...HIGHLIGHT_DARK_THEMES]
+  const selected = (all as readonly string[]).includes(value) ? value : THEME_CUSTOM
+  return (
+    <div className="flex items-center gap-2">
+      <select
+        className="h-10 w-full cursor-pointer rounded-xl border border-line bg-surface px-2 text-[13px] text-text"
+        value={selected}
+        onChange={(e) => onChange(e.target.value === THEME_CUSTOM ? '' : e.target.value)}
+      >
+        <optgroup label={t('settings.themeLight')}>
+          {HIGHLIGHT_LIGHT_THEMES.map((v) => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+        </optgroup>
+        <optgroup label={t('settings.themeDark')}>
+          {HIGHLIGHT_DARK_THEMES.map((v) => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+        </optgroup>
+        <option value={THEME_CUSTOM}>{t('plugins.themeCustom')}</option>
+      </select>
+      {selected === THEME_CUSTOM && (
+        <Input placeholder={t('plugins.themeCustomHint')} value={value} autoFocus onChange={(e) => onChange(e.target.value)} />
+      )}
+    </div>
+  )
+}
+
 /** 插件定义（与服务端 server/plugins/registry.ts 对应；标记 reserved 的为预留位） */
 const DEFS = [
   { id: 'reading-time', nameKey: 'plugins.items.reading-time.name', descKey: 'plugins.items.reading-time.desc', config: [] as string[] },
@@ -95,14 +135,22 @@ export function PluginsSection() {
               </div>
               {on && def.config.length > 0 && (
                 <div className="mt-3 grid gap-2 border-t border-line pt-3 md:grid-cols-2">
-                  {def.config.map((key) => (
-                    <Input
-                      key={key}
-                      placeholder={key}
-                      value={confOf(def.id)[key] ?? ''}
-                      onChange={(e) => setConfig(def.id, key, e.target.value)}
-                    />
-                  ))}
+                  {def.config.map((key) =>
+                    def.id === 'highlight' && key === 'theme' ? (
+                      <HighlightThemeField
+                        key={key}
+                        value={confOf(def.id)[key] ?? ''}
+                        onChange={(v) => setConfig(def.id, key, v)}
+                      />
+                    ) : (
+                      <Input
+                        key={key}
+                        placeholder={key}
+                        value={confOf(def.id)[key] ?? ''}
+                        onChange={(e) => setConfig(def.id, key, e.target.value)}
+                      />
+                    ),
+                  )}
                 </div>
               )}
             </div>

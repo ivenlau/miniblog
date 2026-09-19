@@ -66,10 +66,16 @@ await context.request.put(`${BASE}/api/pages/about`, {
       '# 关于本站\n\n这是**关于页**，支持 [链接](https://example.com) 与列表：\n\n- 第一条\n- 第二条\n\n> 引用一句',
   },
 })
-// 开启目录插件（浮动组件）
+// 开启目录插件（浮动组件）+ 代码高亮（下拉主题字段）
 await context.request.put(`${BASE}/api/settings`, {
   headers: H,
-  data: { plugins: [{ id: 'toc', enabled: true }, { id: 'reading-time', enabled: true }] },
+  data: {
+    plugins: [
+      { id: 'toc', enabled: true },
+      { id: 'reading-time', enabled: true },
+      { id: 'highlight', enabled: true, config: { theme: 'github' } },
+    ],
+  },
 })
 await context.request.put(`${BASE}/api/settings`, {
   headers: H,

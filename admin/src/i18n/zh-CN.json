@@ -293,7 +293,9 @@
         "name": "页脚链接",
         "desc": "页脚自定义链接，格式：名称|链接，分号分隔"
       }
-    }
+    },
+    "themeCustom": "自定义…",
+    "themeCustomHint": "自定义主题名（留空 = 默认 github-dark）"
   },
   "errors": {
     "UNKNOWN": "发生未知错误",

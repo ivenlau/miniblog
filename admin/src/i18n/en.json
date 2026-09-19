@@ -297,7 +297,9 @@
         "name": "Footer links",
         "desc": "Custom footer links, format: Label|URL separated by semicolons"
       }
-    }
+    },
+    "themeCustom": "Custom…",
+    "themeCustomHint": "Custom theme name (empty = default github-dark)"
   },
   "errors": {
     "UNKNOWN": "Something went wrong",

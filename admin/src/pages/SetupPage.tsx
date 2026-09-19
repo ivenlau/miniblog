@@ -40,7 +40,7 @@ export function SetupPage() {
     setBusy(true)
     setError(null)
     try {
-      const res = await setupPasskey(email || 'owner@blog.local', setupToken)
+      const res = await setupPasskey(email || 'owner@blog.local', setupToken, displayName || undefined)
       setRecoveryCodes(res.recoveryCodes)
       void qc.invalidateQueries({ queryKey: ['bootstrap'] })
     } catch (err) {

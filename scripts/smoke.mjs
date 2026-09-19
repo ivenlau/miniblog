@@ -487,11 +487,11 @@ async function main() {
       'footer-links 渲染并过滤非法 href',
       html.includes('href="https://github.com"') && html.includes('>站内<') && !html.includes('javascript:alert'),
     )
-    // 目录只渲染一份（内置目录已移除，唯一来源是 toc 插件）
+    // 目录为浮动展开/收起组件，仅一份（内置目录已移除，唯一来源是 toc 插件）
     const tocHtml = await (await fetch(`${BASE}/post/目录测试文`)).text()
     check(
-      '目录仅一份（插件唯一来源）',
-      (tocHtml.match(/<nav class="mb-toc-plugin">/g) ?? []).length === 1 && !tocHtml.includes('class="toc"'),
+      '目录仅一份（浮动组件）',
+      (tocHtml.match(/id="mb-toc"/g) ?? []).length === 1 && tocHtml.includes('mb-toc-btn') && !tocHtml.includes('class="toc"'),
     )
 
     // 全部关闭后，插件输出（含缓存中的旧 HTML）必须从文章页消失
@@ -499,7 +499,7 @@ async function main() {
     const off = await (await fetch(`${BASE}/post/目录测试文`)).text()
     check(
       '关闭插件即时生效（文章页缓存已清）',
-      !off.includes('<nav class="mb-toc-plugin">') && !off.includes('>· 约') && !off.includes('分钟阅读') && !off.includes('mb-lightbox'),
+      !off.includes('mb-toc-panel') && !off.includes('>· 约') && !off.includes('分钟阅读') && !off.includes('mb-lightbox'),
     )
   }
 

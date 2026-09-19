@@ -66,6 +66,11 @@ await context.request.put(`${BASE}/api/pages/about`, {
       '# 关于本站\n\n这是**关于页**，支持 [链接](https://example.com) 与列表：\n\n- 第一条\n- 第二条\n\n> 引用一句',
   },
 })
+// 开启目录插件（浮动组件）
+await context.request.put(`${BASE}/api/settings`, {
+  headers: H,
+  data: { plugins: [{ id: 'toc', enabled: true }, { id: 'reading-time', enabled: true }] },
+})
 await context.request.put(`${BASE}/api/settings`, {
   headers: H,
   data: {
@@ -105,6 +110,19 @@ await shots([
   { url: '/admin/settings', name: '07-admin-security' },
 ])
 
+// 编辑器：预览切换态 + 文章设置展开态（全宽单栏布局）
+await page.goto(`${BASE}/admin/posts/new`, { waitUntil: 'networkidle' })
+await page.locator('textarea').fill('# 标题\n\n一段**示例**正文。\n\n## 小节\n\n内容')
+await page.getByRole('button', { name: /预览|Preview/ }).click()
+await page.waitForTimeout(1200)
+await page.screenshot({ path: '/tmp/mb-shots/18-editor-preview.png' })
+console.log('✓ 18-editor-preview')
+await page.getByRole('button', { name: /预览|Preview/ }).click() // 回写作态
+await page.getByRole('button', { name: /文章设置|Post settings/ }).first().click()
+await page.waitForTimeout(400)
+await page.screenshot({ path: '/tmp/mb-shots/19-editor-meta.png' })
+console.log('✓ 19-editor-meta')
+
 // ---- Admin 暗色（主题页 + 编辑器）----
 await page.addInitScript(() => localStorage.setItem('mb.theme', 'dark'))
 await shots([
@@ -128,6 +146,13 @@ await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
 await page.waitForTimeout(500)
 await page.screenshot({ path: '/tmp/mb-shots/15-post-scrolled.png' })
 console.log('✓ 15-post-scrolled')
+
+// 目录浮层：展开态
+await page.goto(`${BASE}/post/hello-miniblog`, { waitUntil: 'networkidle' })
+await page.click('#mb-toc-btn')
+await page.waitForTimeout(400)
+await page.screenshot({ path: '/tmp/mb-shots/17-toc-open.png' })
+console.log('✓ 17-toc-open')
 
 const mobile = await context.newPage()
 await mobile.setViewportSize({ width: 375, height: 812 })

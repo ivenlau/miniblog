@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { isImageFile, uploadImage } from '../lib/assets'
 import { insertAtCursor, insertLink, surround } from '../lib/markdown-commands'
@@ -31,13 +31,6 @@ export function MarkdownField({
   const [view, setView] = useState<'write' | 'preview'>('write')
   const [picker, setPicker] = useState(false)
   const [dragging, setDragging] = useState(false)
-  const [isDesktop, setIsDesktop] = useState(() => window.matchMedia('(min-width: 1024px)').matches)
-  useEffect(() => {
-    const mq = window.matchMedia('(min-width: 1024px)')
-    const onChange = () => setIsDesktop(mq.matches)
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [])
 
   const errText = (err: unknown) => t(`errors.${err instanceof ApiError ? err.code : 'UNKNOWN'}`)
 
@@ -80,7 +73,7 @@ export function MarkdownField({
     }
   }
 
-  const previewEnabled = view === 'preview' || isDesktop
+  const previewEnabled = view === 'preview'
 
   return (
     <div className="space-y-2.5">
@@ -88,7 +81,7 @@ export function MarkdownField({
         <div className="min-w-0 flex-1">
           <EditorToolbar run={applyCmd} onPickImage={() => setPicker(true)} />
         </div>
-        <div className="flex shrink-0 rounded-xl border border-line bg-surface p-0.5 lg:hidden">
+        <div className="flex shrink-0 rounded-xl border border-line bg-surface p-0.5">
           {(['write', 'preview'] as const).map((v) => (
             <button
               key={v}
@@ -105,7 +98,7 @@ export function MarkdownField({
         </div>
       </div>
 
-      <div className="relative grid gap-3 lg:grid-cols-2">
+      <div className="relative">
         <textarea
           ref={taRef}
           value={value}
@@ -133,7 +126,7 @@ export function MarkdownField({
           onDragLeave={() => setDragging(false)}
           className={cn(
             `${heightClass} w-full resize-none rounded-xl border border-line bg-surface p-4 font-mono text-[16px] leading-relaxed text-text outline-none focus:border-accent md:text-[13.5px]`,
-            view === 'preview' && 'hidden lg:block',
+            view === 'preview' && 'hidden',
             dragging && 'border-accent ring-2 ring-accent/25',
           )}
         />
@@ -144,15 +137,11 @@ export function MarkdownField({
             </span>
           </div>
         )}
-        <div
-          className={cn(
-            'min-h-0 overflow-y-auto rounded-xl border border-line bg-surface p-4',
-            view === 'write' && 'hidden lg:block',
-            heightClass,
-          )}
-        >
-          <PreviewPane contentMd={value} enabled={previewEnabled} />
-        </div>
+        {view === 'preview' && (
+          <div className={cn('min-h-0 overflow-y-auto rounded-xl border border-line bg-surface p-4', heightClass)}>
+            <PreviewPane contentMd={value} enabled={previewEnabled} />
+          </div>
+        )}
       </div>
 
       {picker && (

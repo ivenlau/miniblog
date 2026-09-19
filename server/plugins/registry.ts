@@ -31,12 +31,41 @@ export const PLUGIN_DEFS: PluginDef[] = [
     id: 'toc',
     name: '目录',
     mount: 'post_html',
-    render: (ctx) =>
-      ctx.post.rendered.toc.length > 0
-        ? `<nav class="mb-toc-plugin"><h3>目录</h3>${ctx.post.rendered.toc
-            .map((t) => `<a href="#${t.id}" style="padding-left:${(t.level - 2) * 1}rem">${t.text}</a>`)
-            .join('')}</nav><style>.mb-toc-plugin{background:#fff;border:1px solid #e8e8ec;border-radius:10px;padding:1rem;margin:1.5rem 0}.mb-toc-plugin h3{margin:0 0 .5rem;font-size:.95rem}.mb-toc-plugin a{display:block;color:inherit;text-decoration:none;font-size:.9rem;padding:.15rem 0}.mb-toc-plugin a:hover{color:var(--mb-accent)}</style>`
-        : '',
+    // 浮动展开/收起组件：左下角按钮 + 面板（移动端/桌面端一致），滚动时高亮当前小节，
+    // 不占用文章版面；深色主题（gallery）自动适配
+    render: (ctx) => {
+      const items = ctx.post.rendered.toc
+      if (items.length === 0) return ''
+      const links = items
+        .map(
+          (t) =>
+            `<a href="#${escAttr(t.id)}" style="padding-left:${(t.level - 2) * 0.8 + 0.5}rem">${escHtml(t.text)}</a>`,
+        )
+        .join('')
+      return `<button type="button" id="mb-toc-btn" aria-label="目录" aria-expanded="false"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg></button><div id="mb-toc-bd"></div><nav id="mb-toc" class="mb-toc-panel" aria-label="目录"><div class="mb-toc-h"><span>目录</span><button type="button" id="mb-toc-x" aria-label="关闭">×</button></div>${links}</nav><style>html{scroll-behavior:smooth}
+#mb-toc-btn{position:fixed;left:1.25rem;bottom:1.25rem;z-index:60;width:2.6rem;height:2.6rem;display:flex;align-items:center;justify-content:center;border:1px solid #e5e7ec;border-radius:50%;background:#fff;color:#555;cursor:pointer;box-shadow:0 4px 16px rgb(0 0 0/.14);transition:transform .15s ease,color .15s ease}
+#mb-toc-btn:hover{color:var(--mb-accent);transform:scale(1.05)}
+#mb-toc-bd{position:fixed;inset:0;z-index:59;display:none}
+#mb-toc-bd.on{display:block}
+.mb-toc-panel{position:fixed;left:1.1rem;bottom:4.4rem;z-index:61;width:min(19rem,calc(100vw - 2.2rem));max-height:min(62vh,26rem);overflow-y:auto;background:#fff;border:1px solid #e5e7ec;border-radius:14px;box-shadow:0 10px 34px rgb(16 24 40/.18);padding:.55rem;opacity:0;pointer-events:none;transform:translateY(8px);transition:opacity .18s ease,transform .18s ease}
+.mb-toc-panel.on{opacity:1;pointer-events:auto;transform:none}
+.mb-toc-h{display:flex;align-items:center;justify-content:space-between;padding:.15rem .5rem .4rem;border-bottom:1px solid #f0f1f4;margin-bottom:.3rem}
+.mb-toc-h span{font-size:.8rem;font-weight:600;color:#888}
+#mb-toc-x{border:none;background:none;font-size:1.05rem;line-height:1;color:#aaa;cursor:pointer;padding:.15rem .3rem;border-radius:6px}
+#mb-toc-x:hover{color:#555;background:#f1f3f6}
+.mb-toc-panel a{display:block;padding:.34rem .55rem;border-radius:8px;color:#4b5563;font-size:.87rem;line-height:1.45;text-decoration:none}
+.mb-toc-panel a:hover{background:#f1f3f6;color:var(--mb-accent)}
+.mb-toc-panel a.cur{color:var(--mb-accent);font-weight:600;background:rgba(0,0,0,.045)}
+body.theme-gallery #mb-toc-btn{background:#181d22;border-color:#2a313a;color:#c8cdd6}
+body.theme-gallery .mb-toc-panel{background:#181d22;border-color:#2a313a}
+body.theme-gallery .mb-toc-h{border-bottom-color:#232a31}
+body.theme-gallery .mb-toc-h span{color:#8b93a3}
+body.theme-gallery #mb-toc-x:hover{color:#c8cdd6;background:#232a31}
+body.theme-gallery .mb-toc-panel a{color:#b9c0ca}
+body.theme-gallery .mb-toc-panel a:hover{background:#232a31;color:var(--mb-accent)}
+body.theme-gallery .mb-toc-panel a.cur{color:var(--mb-accent);background:#232a31}
+</style><script>(function(){var p=document.getElementById('mb-toc'),b=document.getElementById('mb-toc-btn'),x=document.getElementById('mb-toc-x'),bd=document.getElementById('mb-toc-bd');if(!p||!b)return;var set=function(on){p.classList.toggle('on',on);bd.classList.toggle('on',on);b.setAttribute('aria-expanded',on?'true':'false')};var on=function(){return p.classList.contains('on')};b.addEventListener('click',function(){set(!on())});x&&x.addEventListener('click',function(){set(false)});bd.addEventListener('click',function(){set(false)});document.addEventListener('keydown',function(e){if(e.key==='Escape')set(false)});p.addEventListener('click',function(e){var t=e.target;if(t&&t.tagName==='A')set(false)});var ls=[].slice.call(p.querySelectorAll('a'));var hs=ls.map(function(a){return document.getElementById(a.getAttribute('href').slice(1))}).filter(Boolean);if('IntersectionObserver' in window&&hs.length){var io=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){ls.forEach(function(l){l.classList.toggle('cur',l.getAttribute('href')==='#'+en.target.id)})}})},{rootMargin:'-12% 0px -78% 0px'});hs.forEach(function(h){io.observe(h)})}})()</script>`
+    },
   },
   {
     id: 'highlight',

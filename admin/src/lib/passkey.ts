@@ -10,12 +10,16 @@ export async function registerPasskey(name?: string): Promise<void> {
   await api.post('/api/auth/webauthn/register', { credential, name })
 }
 
-export async function setupPasskey(email: string, setupToken: string): Promise<{ recoveryCodes: string[] }> {
+export async function setupPasskey(
+  email: string,
+  setupToken: string,
+  displayName?: string,
+): Promise<{ recoveryCodes: string[] }> {
   const options = await api.get<PublicKeyCredentialCreationOptionsJSON>(
     `/api/auth/webauthn/setup/options?email=${encodeURIComponent(email)}`,
   )
   const credential = await startRegistration({ optionsJSON: options })
-  return api.post('/api/setup', { setupToken, email, name: 'Primary passkey', credential })
+  return api.post('/api/setup', { setupToken, email, displayName, name: 'Primary passkey', credential })
 }
 
 export async function loginWithPasskey(useAutofill = false): Promise<void> {

@@ -80,13 +80,6 @@ export function EditorPage() {
   // 此时 setSaved 引发的重渲染尚未发生，必须用 ref）
   const skipNavRef = useRef(false)
   const postId = id ?? createdIdRef.current
-  const [isDesktop, setIsDesktop] = useState(() => window.matchMedia('(min-width: 1024px)').matches)
-  useEffect(() => {
-    const mq = window.matchMedia('(min-width: 1024px)')
-    const onChange = () => setIsDesktop(mq.matches)
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [])
 
   const set = useCallback((patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch })), [])
 
@@ -261,7 +254,7 @@ export function EditorPage() {
     for (const f of files) void uploadAndInsert(f)
   }
 
-  const previewEnabled = view === 'preview' || isDesktop
+  const previewEnabled = view === 'preview'
 
   if (loading) {
     return (
@@ -295,8 +288,8 @@ export function EditorPage() {
         <SaveIndicator state={autosave.state} onRetry={() => void saveNow()} />
 
         <div className="flex shrink-0 items-center gap-1.5">
-          {/* 移动端：写作/预览切换 + 设置开关 */}
-          <div className="flex rounded-xl border border-line bg-surface p-0.5 lg:hidden">
+          {/* 写作/预览切换（全端一致，宽度留给编辑器） */}
+          <div className="flex rounded-xl border border-line bg-surface p-0.5">
             {(['write', 'preview'] as const).map((v) => (
               <button
                 key={v}
@@ -311,9 +304,8 @@ export function EditorPage() {
             ))}
           </div>
           <Button
-            variant="ghost"
+            variant={showMeta ? 'accentSoft' : 'ghost'}
             size="icon"
-            className="lg:hidden"
             title={t('editor.meta')}
             onClick={() => setShowMeta((v) => !v)}
           >
@@ -347,8 +339,8 @@ export function EditorPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
-        {/* 左：工具栏 + 编辑/预览 */}
+      <div className={cn('grid gap-4', showMeta && 'lg:grid-cols-[minmax(0,1fr)_320px]')}>
+        {/* 编辑/预览（单栏全宽，切换展示） */}
         <div className="min-w-0 space-y-2.5">
           <div className="flex items-center gap-2">
             <div className="min-w-0 flex-1">
@@ -359,7 +351,7 @@ export function EditorPage() {
             </span>
           </div>
 
-          <div className="relative grid gap-3 lg:grid-cols-2">
+          <div className="relative">
             <textarea
               ref={taRef}
               value={draft.contentMd}
@@ -377,8 +369,8 @@ export function EditorPage() {
               autoCapitalize="off"
               autoCorrect="off"
               className={cn(
-                'h-[46dvh] w-full resize-none rounded-xl border border-line bg-surface p-4 font-mono text-[16px] leading-relaxed text-text outline-none focus:border-accent md:text-[13.5px] lg:h-[calc(100dvh-13.5rem)]',
-                view === 'preview' && 'hidden lg:block',
+                'h-[52dvh] w-full resize-none rounded-xl border border-line bg-surface p-4 font-mono text-[16px] leading-relaxed text-text outline-none focus:border-accent md:text-[13.5px] lg:h-[calc(100dvh-15rem)]',
+                view === 'preview' && 'hidden',
                 dragging && 'border-accent ring-2 ring-accent/25',
               )}
             />
@@ -389,25 +381,24 @@ export function EditorPage() {
                 </span>
               </div>
             )}
-            <div
-              className={cn(
-                'min-h-0 overflow-y-auto rounded-xl border border-line bg-surface p-4 lg:h-[calc(100dvh-13.5rem)]',
-                view === 'write' && 'hidden lg:block',
-              )}
-            >
-              <PreviewPane contentMd={draft.contentMd} enabled={previewEnabled} />
-            </div>
+            {view === 'preview' && (
+              <div className="min-h-0 h-[52dvh] overflow-y-auto rounded-xl border border-line bg-surface p-4 lg:h-[calc(100dvh-15rem)]">
+                <PreviewPane contentMd={draft.contentMd} enabled={previewEnabled} />
+              </div>
+            )}
           </div>
         </div>
 
-        {/* 右：文章设置 + 素材（移动端按需展开） */}
-        <aside className={cn('space-y-4 lg:block', showMeta ? 'block' : 'hidden')}>
-          <section className="rounded-2xl border border-line bg-surface p-4">
-            <h3 className="mb-3 text-[13px] font-semibold">{t('editor.meta')}</h3>
-            <MetaPanel draft={draft} set={set} onPickCover={() => setPicker('cover')} />
-          </section>
-          <AssetPanel onUpload={(f) => void uploadAndInsert(f)} onInsert={(md) => applyCmd((s) => insertAtCursor(s, md))} />
-        </aside>
+        {/* 文章设置 + 素材：开关控制；桌面端开启时作为右侧栏 */}
+        {showMeta && (
+          <aside className="space-y-4">
+            <section className="rounded-2xl border border-line bg-surface p-4">
+              <h3 className="mb-3 text-[13px] font-semibold">{t('editor.meta')}</h3>
+              <MetaPanel draft={draft} set={set} onPickCover={() => setPicker('cover')} />
+            </section>
+            <AssetPanel onUpload={(f) => void uploadAndInsert(f)} onInsert={(md) => applyCmd((s) => insertAtCursor(s, md))} />
+          </aside>
+        )}
       </div>
 
       {/* 素材选择器：插入正文（多选）/ 选封面（单选） */}

@@ -4,12 +4,12 @@
   "main": "server/index.tsx",
   "compatibility_date": "2025-05-05",
   "compatibility_flags": ["nodejs_compat"],
-  // 所有请求先进 Worker：/admin/* 转发 ASSETS（SPA），其余 SSR / API / 直链
-  "run_worker_first": ["/", "/admin/*", "/api/*", "/post/*", "/archive", "/tag/*", "/page/*", "/rss.xml", "/sitemap.xml", "/assets/*", "/themes/*"],
+  // 命中静态资产的请求也先进 Worker：/admin/* 需要附加安全头（CSP 等），其余 SSR / API / 直链
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    "not_found_handling": "none"
+    "not_found_handling": "none",
+    "run_worker_first": ["/", "/admin/*", "/api/*", "/post/*", "/archive", "/tags", "/tag/*", "/page/*", "/rss.xml", "/sitemap.xml", "/assets/*", "/themes/*"]
   },
   // ── standalone（默认）：自己的 D1/R2，自带完整认证 ─────────────────
   "r2_buckets": [

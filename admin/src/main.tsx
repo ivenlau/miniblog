@@ -1,17 +1,23 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { RouterProvider } from 'react-router-dom'
+import './i18n' // 必须先于组件初始化（ui.tsx 等使用 useTranslation）
 import './styles/admin.css'
-import App from './App'
+import { router } from './router'
 import { ToastProvider } from './state/toast'
+
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: 1, staleTime: 30_000, refetchOnWindowFocus: false } },
+})
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <BrowserRouter>
+    <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <App />
+        <RouterProvider router={router} />
       </ToastProvider>
-    </BrowserRouter>
+    </QueryClientProvider>
   </React.StrictMode>,
 )
 

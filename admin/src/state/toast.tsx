@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { CheckCircle2, XCircle } from 'lucide-react'
+import { CheckCircle2, Info, XCircle } from 'lucide-react'
 
 type ToastKind = 'success' | 'error' | 'info'
 type Toast = { id: number; kind: ToastKind; message: string }
@@ -18,7 +18,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const push = useCallback((message: string, kind: ToastKind = 'info') => {
     const id = ++seq.current
     setToasts((t) => [...t.slice(-3), { id, kind, message }])
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2600)
+    // 错误停留更久，给用户时间读完
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), kind === 'error' ? 4200 : 2600)
   }, [])
 
   const value = useMemo(() => push, [push])
@@ -30,14 +31,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className="pointer-events-auto flex max-w-md items-center gap-2.5 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm shadow-card"
+            className="mb-slide-up pointer-events-auto flex max-w-md items-center gap-2.5 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm shadow-pop"
           >
-            {t.kind === 'success' ? (
-              <CheckCircle2 size={16} className="shrink-0 text-accent" />
-            ) : t.kind === 'error' ? (
-              <XCircle size={16} className="shrink-0 text-danger" />
-            ) : null}
-            {t.message}
+            {t.kind === 'success' && <CheckCircle2 size={17} className="shrink-0 text-accent" />}
+            {t.kind === 'error' && <XCircle size={17} className="shrink-0 text-danger" />}
+            {t.kind === 'info' && <Info size={17} className="shrink-0 text-muted" />}
+            <span className="min-w-0 break-words">{t.message}</span>
           </div>
         ))}
       </div>

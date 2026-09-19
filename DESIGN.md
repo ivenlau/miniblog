@@ -5,9 +5,9 @@
 
 | | |
 |---|---|
-| 版本 | v1.1（设计定稿，待实施） |
-| 日期 | 2026-09-18 |
-| 状态 | Draft → Ready for Implementation |
+| 版本 | v1.2（v1.1 定稿 + Admin 设计系统/公开站导航增补，已实施） |
+| 日期 | 2026-09-19 |
+| 状态 | Implemented |
 | 产品名 | Miniblog |
 | 部署 | `b.<根域>` 子域（如 `b.minimo.qzz.io`），全环境变量驱动，可换域重部署 |
 
@@ -410,3 +410,32 @@ list{ posts[], page, totalPages }          tokens{ ...CSS 变量表 }
 
 - standalone：独享免费额度（Workers 免费层 + D1 5GB + R2 10GB），$0 起步
 - linked：与 minidriver 共享资源，增量≈0（博客流量走 CDN 缓存）；仍建议 Workers Paid $5/月（两应用共享）
+
+---
+
+## 15. Admin 设计系统与公开站导航（v1.2 增补）
+
+### 15.1 Admin 与 minidriver 同构
+
+| 项 | 实现 |
+|---|---|
+| Design Tokens | `--mb-*` CSS 变量双主题 + Tailwind `@theme inline`（`admin/src/styles/admin.css`） |
+| 主题三态 / 语言 | localStorage `mb.theme` / `mb.lang`；`admin/public/theme.js` 首帧防闪白（CSP `script-src 'self'` 故为外部文件） |
+| 组件库 | `admin/src/components/ui.tsx`：Button(5×3)/Input/Modal(底部 sheet+`pinnedFooter`)/Dropdown/Confirm/Prompt/EmptyState/SkeletonList |
+| 布局 | `layout/AdminShell.tsx`：桌面侧栏 + 顶栏（主题/语言/账号），移动端底部 5 格导航（中央「写作」） |
+| 路由 | `createBrowserRouter`（basename `/admin`）——编辑器 `useBlocker` 脏守卫的硬前提 |
+| i18n | i18next 单 `translation` namespace；`errors` 按服务端错误码映射（`t('errors.'+code)`），API 零文案 |
+| 编辑器 | Markdown 源 + 工具栏（`lib/markdown-commands.ts` 纯函数）+ `POST /api/preview` 服务端同管线实时预览（400ms 防抖）+ 图片粘贴/拖拽/素材库（一律插入光标处）+ 2s 自动保存 + 双保险脏守卫（blocker + beforeunload） |
+| 安全头 | `/admin/*` 的 HTML 附加 CSP（`script-src 'self'`）等五头（`server/index.tsx`）；公开页不加（插件注入 CDN script）。`assets.run_worker_first` 保证静态精确命中也过 Worker |
+
+### 15.2 公开站导航契约
+
+```
+blog_settings.site.nav?: [{ label, href }]   // href 必须 / 开头或 http(s)://，≤8 条，超限/非法项被服务端丢弃
+// 留空时默认：首页 / 、归档 /archive、标签 /tags（存在 about 页时自动加 关于 /page/about）
+```
+
+- 内置主题 `shell()` 渲染 `nav.site-nav`（`ctx.path` 精确匹配高亮）；Liquid 主题上下文同样含 `site.nav` 与 `path`
+- 零 JS：移动端导航折行为横向可滑动第二行（`@media (max-width:640px)`）
+- 新增 `GET /tags`（已发布文章的标签聚合，进 sitemap）；`server/lib/cache.ts` 的清除列表含 `/tags`，改导航保存即清
+- 文章页 `← 站名`、归档/标签/页面 `← 首页` 返回链接

@@ -19,7 +19,7 @@ export async function purgeBlogCache(
   env: Env,
   opts: { slug?: string; tagSlugs?: string[]; pageSlug?: string } = {},
 ): Promise<void> {
-  const paths = ['/', '/archive', '/rss.xml', '/sitemap.xml']
+  const paths = ['/', '/archive', '/tags', '/rss.xml', '/sitemap.xml']
   if (opts.slug) paths.push(`/post/${opts.slug}`)
   for (const t of opts.tagSlugs ?? []) paths.push(`/tag/${t}`)
   if (opts.pageSlug) paths.push(`/page/${opts.pageSlug}`)

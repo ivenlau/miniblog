@@ -1,17 +1,69 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 
-@theme {
-  --color-bg: #f6f7f9;
-  --color-surface: #ffffff;
-  --color-surface2: #f1f3f6;
-  --color-text: #17181c;
-  --color-muted: #667085;
-  --color-line: #e4e7ec;
-  --color-accent: #5b5bd6;
-  --color-accent-soft: #eeeefc;
-  --color-danger: #dc2626;
-  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.06), 0 1px 3px rgb(16 24 40 / 0.08);
+/* class/data-theme 双保险的暗色变体（组件主要用语义 token，dark: 很少用到） */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+:root {
+  --mb-bg: #f6f7f9;
+  --mb-surface: #ffffff;
+  --mb-surface-2: #f1f3f6;
+  --mb-surface-3: #e8ebf0;
+  --mb-text: #17181c;
+  --mb-muted: #667085;
+  --mb-border: #e4e7ec;
+  --mb-accent: #5b5bd6;
+  --mb-accent-strong: #4a4ac4;
+  --mb-accent-soft: #eeeefc;
+  --mb-danger: #dc2626;
+  --mb-danger-soft: #fde8e8;
+  --mb-warn: #b45309;
+  --mb-warn-soft: #fef3c7;
+  --mb-shadow-card: 0 1px 2px rgb(16 24 40 / 0.05), 0 1px 3px rgb(16 24 40 / 0.07);
+  --mb-shadow-pop: 0 10px 34px rgb(16 24 40 / 0.16);
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --mb-bg: #0e1014;
+  --mb-surface: #161920;
+  --mb-surface-2: #1d212b;
+  --mb-surface-3: #272c38;
+  --mb-text: #e7e9ee;
+  --mb-muted: #8b93a3;
+  --mb-border: #272c38;
+  --mb-accent: #7c7cf0;
+  --mb-accent-strong: #9898f6;
+  --mb-accent-soft: #22233f;
+  --mb-danger: #f87171;
+  --mb-danger-soft: #3a1d1d;
+  --mb-warn: #fbbf24;
+  --mb-warn-soft: #3a2c10;
+  --mb-shadow-card: 0 1px 2px rgb(0 0 0 / 0.45);
+  --mb-shadow-pop: 0 10px 34px rgb(0 0 0 / 0.55);
+  color-scheme: dark;
+}
+
+/* 必须是 @theme inline：直接引用上面的变量，data-theme 切换才能生效 */
+@theme inline {
+  --color-bg: var(--mb-bg);
+  --color-surface: var(--mb-surface);
+  --color-surface2: var(--mb-surface-2);
+  --color-surface3: var(--mb-surface-3);
+  --color-text: var(--mb-text);
+  --color-muted: var(--mb-muted);
+  --color-line: var(--mb-border);
+  --color-accent: var(--mb-accent);
+  --color-accent-strong: var(--mb-accent-strong);
+  --color-accent-soft: var(--mb-accent-soft);
+  --color-danger: var(--mb-danger);
+  --color-danger-soft: var(--mb-danger-soft);
+  --color-warn: var(--mb-warn);
+  --color-warn-soft: var(--mb-warn-soft);
+  --shadow-card: var(--mb-shadow-card);
+  --shadow-pop: var(--mb-shadow-pop);
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, 'Segoe UI',
+    'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
 }
 
 html,
@@ -21,6 +73,96 @@ body,
 }
 
 body {
-  @apply bg-bg text-text antialiased;
-  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+  @apply bg-bg text-text font-sans antialiased;
+  overscroll-behavior-y: none;
+}
+
+::selection {
+  background: var(--mb-accent-soft);
+}
+
+/* 细滚动条（桌面） */
+@media (pointer: fine) {
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: var(--mb-surface-3);
+    border-radius: 8px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--mb-muted);
+    background-clip: content-box;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 通用动效 */
+@keyframes mb-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes mb-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes mb-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes mb-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.mb-fade-in {
+  animation: mb-fade-in 0.18s ease-out;
+}
+.mb-slide-up {
+  animation: mb-slide-up 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.mb-sheet-up {
+  animation: mb-sheet-up 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.mb-skeleton {
+  background: linear-gradient(90deg, var(--mb-surface-2) 25%, var(--mb-surface-3) 50%, var(--mb-surface-2) 75%);
+  background-size: 200% 100%;
+  animation: mb-shimmer 1.4s linear infinite;
+}
+
+/* 隐藏横向滚动条（设置页移动端标签条） */
+.mb-scroll-x {
+  scrollbar-width: none;
+}
+.mb-scroll-x::-webkit-scrollbar {
+  display: none;
 }

@@ -1,5 +1,8 @@
+/** 公开站导航链接（site.nav；空 = 服务端按内容给默认值） */
+export type NavItem = { label: string; href: string }
+
 /** 站点信息（Admin 站点设置） */
-export type SiteInfo = { name: string; description: string; footer: string }
+export type SiteInfo = { name: string; description: string; footer: string; nav?: NavItem[] }
 
 /** 主题 Design Tokens（用户可在 Admin 覆盖） */
 export type ThemeTokens = { accent: string; radius: number; width: number; font: 'sans' | 'serif' }
@@ -7,6 +10,8 @@ export type ThemeContext = {
   site: SiteInfo
   title: string
   tokens: ThemeTokens
+  /** 当前路径（用于导航高亮） */
+  path?: string
   /** 插件挂载点：head 额外资源（script/link） */
   headHtml?: string
   /** 插件挂载点：页脚附加内容 */
@@ -30,11 +35,25 @@ body{margin:0;background:#f7f7f9;color:#1b1c1f;line-height:1.75;
   font-family:${t.font === 'serif' ? SERIF : SANS}}
 a{color:inherit;text-decoration:none}a:hover{color:var(--mb-accent)}
 header.site{border-bottom:1px solid #e8e8ec;background:#ffffffcc;backdrop-filter:blur(8px);position:sticky;top:0;z-index:10}
-header.site .inner{max-width:var(--mb-width);margin:0 auto;padding:.9rem 1.25rem;display:flex;align-items:baseline;gap:1rem}
-header.site .desc{color:#777;font-size:.85rem;margin:0}
+header.site .inner{max-width:var(--mb-width);margin:0 auto;padding:.9rem 1.25rem;display:flex;align-items:baseline;gap:.5rem 1.25rem;flex-wrap:wrap}
+header.site .brand{display:flex;align-items:baseline;gap:.75rem;min-width:0}
+header.site .desc{color:#777;font-size:.85rem;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+nav.site-nav{display:flex;gap:1rem;margin-left:auto;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+nav.site-nav::-webkit-scrollbar{display:none}
+nav.site-nav a{font-size:.9rem;color:#666;white-space:nowrap;padding:.15rem 0}
+nav.site-nav a:hover,nav.site-nav a.active{color:var(--mb-accent)}
+nav.site-nav a.active{font-weight:600}
 main{max-width:var(--mb-width);margin:0 auto;padding:2.5rem 1.25rem 4rem}
+a.back{display:inline-block;margin-bottom:1rem;color:#888;font-size:.9rem}a.back:hover{color:var(--mb-accent)}
 h1,h2,h3{line-height:1.35}
 footer.site{max-width:var(--mb-width);margin:2rem auto 0;padding:1.25rem;color:#888;font-size:.85rem;border-top:1px solid #e8e8ec}
+@media (max-width:640px){
+  header.site .desc{display:none}
+  nav.site-nav{margin-left:0;width:100%;order:3;padding-bottom:.25rem}
+  main{padding:1.5rem 1rem 3rem}
+  article h1{font-size:1.5rem}
+  .page-title{font-size:1.25rem}
+}
 .post{margin-bottom:2.75rem}.post h2{margin:0 0 .3rem;font-size:1.3rem}
 .meta{color:#888;font-size:.85rem}
 .page-title{font-size:1.5rem;margin:0 0 1.5rem}
@@ -49,8 +68,9 @@ article blockquote{margin:1rem 0;padding:.25rem 1rem;border-left:3px solid var(-
 `
 
 async function shell(ctx: ThemeContext, extraCss: string, bodyCls: string, body: unknown): Promise<unknown> {
-  const { site, title, tokens } = ctx
+  const { site, title, tokens, path } = ctx
   const year = new Date().getFullYear()
+  const nav = site.nav ?? []
   return (
     <html lang="zh-CN">
       <head>
@@ -63,10 +83,21 @@ async function shell(ctx: ThemeContext, extraCss: string, bodyCls: string, body:
       <body class={bodyCls}>
         <header class="site">
           <div class="inner">
-            <a href="/" style={{ fontWeight: 700, fontSize: '1.05rem' }}>
-              {site.name}
-            </a>
-            {site.description && <p class="desc">{site.description}</p>}
+            <div class="brand">
+              <a href="/" style={{ fontWeight: 700, fontSize: '1.05rem' }}>
+                {site.name}
+              </a>
+              {site.description && <p class="desc">{site.description}</p>}
+            </div>
+            {nav.length > 0 && (
+              <nav class="site-nav">
+                {nav.map((n) => (
+                  <a href={n.href} class={path === n.href ? 'active' : undefined} aria-current={path === n.href ? 'page' : undefined}>
+                    {n.label}
+                  </a>
+                ))}
+              </nav>
+            )}
           </div>
         </header>
         <main>{body}</main>

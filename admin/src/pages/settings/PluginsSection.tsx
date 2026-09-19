@@ -1,40 +1,49 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { api } from '../lib/api'
-import { Button, Input, Spinner, cn } from '../components/ui'
-import { useToast } from '../state/toast'
+import { useTranslation } from 'react-i18next'
+import { ApiError, api } from '../../lib/api'
+import type { PluginConfig } from '../../lib/types'
+import { Button, Input, cn } from '../../components/ui'
+import { useToast } from '../../state/toast'
 
+const errCode = (err: unknown) => (err instanceof ApiError ? err.code : 'UNKNOWN')
+
+/** 插件定义（与服务端 server/plugins/registry.ts 对应；标记 reserved 的为预留位） */
 const DEFS = [
-  { id: 'reading-time', name: '阅读时长', desc: '文章元信息条显示预计阅读时间', config: [] as string[] },
-  { id: 'toc', name: '目录', desc: '文首生成标题目录', config: [] as string[] },
-  { id: 'highlight', name: '代码高亮', desc: 'highlight.js 客户端高亮', config: ['theme'] },
-  { id: 'lightbox', name: '图片灯箱', desc: '点击图片放大（预留）', config: [] as string[] },
-  { id: 'katex', name: '数学公式', desc: 'KaTeX 渲染（预留）', config: [] as string[] },
-  { id: 'giscus', name: 'giscus 评论', desc: '基于 GitHub Discussions', config: ['repo', 'repoId', 'category', 'categoryId'] },
-  { id: 'footer-links', name: '页脚链接', desc: '页脚自定义链接（预留）', config: [] as string[] },
-]
+  { id: 'reading-time', nameKey: 'plugins.items.reading-time.name', descKey: 'plugins.items.reading-time.desc', config: [] as string[] },
+  { id: 'toc', nameKey: 'plugins.items.toc.name', descKey: 'plugins.items.toc.desc', config: [] as string[] },
+  { id: 'highlight', nameKey: 'plugins.items.highlight.name', descKey: 'plugins.items.highlight.desc', config: ['theme'] },
+  { id: 'lightbox', nameKey: 'plugins.items.lightbox.name', descKey: 'plugins.items.lightbox.desc', config: [] as string[] },
+  { id: 'katex', nameKey: 'plugins.items.katex.name', descKey: 'plugins.items.katex.desc', config: [] as string[] },
+  { id: 'giscus', nameKey: 'plugins.items.giscus.name', descKey: 'plugins.items.giscus.desc', config: ['repo', 'repoId', 'category', 'categoryId'] },
+  { id: 'footer-links', nameKey: 'plugins.items.footer-links.name', descKey: 'plugins.items.footer-links.desc', config: [] as string[] },
+] as const
 
-type PluginConfig = { id: string; enabled: boolean; config?: Record<string, string> }
-
-export function PluginsPage() {
+/** 插件：声明式启停 + 配置（写 blog_settings.plugins，公开站即时生效） */
+export function PluginsSection() {
+  const { t } = useTranslation()
   const toast = useToast()
   const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: () => api.get<Record<string, unknown>>('/api/settings') })
   const [plugins, setPlugins] = useState<PluginConfig[]>([])
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
+    if (loaded) return
     const data = settingsQuery.data as { plugins?: PluginConfig[] } | undefined
-    if (data?.plugins && !loaded) {
-      setPlugins(data.plugins)
-      setLoaded(true)
-    } else if (settingsQuery.data && !loaded) {
-      setLoaded(true)
-    }
+    if (!data) return
+    setPlugins(data.plugins ?? [])
+    setLoaded(true)
   }, [settingsQuery.data, loaded])
 
+  const errText = (err: unknown) => t(`errors.${errCode(err)}`)
+
   const save = async () => {
-    await api.put('/api/settings', { plugins })
-    toast('插件配置已保存，公开页即刻生效', 'success')
+    try {
+      await api.put('/api/settings', { plugins })
+      toast(t('plugins.saved'), 'success')
+    } catch (err) {
+      toast(errText(err), 'error')
+    }
   }
   const toggle = (id: string) => {
     setPlugins((prev) => {
@@ -52,14 +61,14 @@ export function PluginsPage() {
   }
   const confOf = (id: string): Record<string, string> => plugins.find((p) => p.id === id)?.config ?? {}
   const enabledOf = (id: string): boolean => plugins.find((p) => p.id === id)?.enabled ?? false
-  const dirty = JSON.stringify(plugins) !== JSON.stringify(settingsQuery.data?.plugins ?? [])
+  const dirty = JSON.stringify(plugins) !== JSON.stringify((settingsQuery.data as { plugins?: PluginConfig[] })?.plugins ?? [])
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-10">
-      <div className="mb-5 flex items-center justify-between">
-        <h1 className="text-lg font-semibold">插件</h1>
-        <Button variant="primary" size="sm" disabled={!dirty} onClick={save}>
-          保存配置
+    <div>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <p className="text-[13px] text-muted">{t('plugins.hint')}</p>
+        <Button variant="primary" size="sm" disabled={!dirty} onClick={() => void save()}>
+          {t('plugins.save')}
         </Button>
       </div>
       <div className="space-y-2">
@@ -69,8 +78,8 @@ export function PluginsPage() {
             <div key={def.id} className={cn('rounded-2xl border border-line bg-surface p-4', on && 'border-accent/50')}>
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium">{def.name}</p>
-                  <p className="text-[12px] text-muted">{def.desc}</p>
+                  <p className="text-sm font-medium">{t(def.nameKey)}</p>
+                  <p className="text-[12px] text-muted">{t(def.descKey)}</p>
                 </div>
                 <button
                   onClick={() => toggle(def.id)}
@@ -78,13 +87,10 @@ export function PluginsPage() {
                     'relative h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors',
                     on ? 'bg-accent' : 'bg-surface3',
                   )}
-                  aria-label={def.name}
+                  aria-label={t(def.nameKey)}
                 >
                   <span
-                    className={cn(
-                      'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all',
-                      on ? 'left-[22px]' : 'left-0.5',
-                    )}
+                    className={cn('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all', on ? 'left-[22px]' : 'left-0.5')}
                   />
                 </button>
               </div>

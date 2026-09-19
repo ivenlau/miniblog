@@ -5,7 +5,7 @@ import { renderMarkdown } from '../render/markdown'
 import { renderLiquid } from '../render/liquid'
 import { renderMount } from '../plugins/registry'
 import type { PluginConfig } from '../plugins/registry'
-import { getBuiltinTheme, resolveTokens, type SiteInfo, type ThemeTokens } from '../render/themes/registry'
+import { getBuiltinTheme, resolveTokens, type NavItem, type SiteInfo, type ThemeTokens } from '../render/themes/registry'
 
 /** 公开站 SSR：首页 / 文章 / 归档 / 标签 / 页面 / RSS / sitemap（主题渲染） */
 export const publicSite = new Hono<AppEnv>()
@@ -23,18 +23,54 @@ type PostRow = {
   updated_at: number
 }
 
-type SiteInfoT = { name: string; description: string; footer: string }
+type SiteInfoT = SiteInfo
 
 const DEFAULT_SITE: SiteInfoT = { name: 'Miniblog', description: '', footer: '' }
 
+/** site.nav 校验：每项需非空 label + 合法 href（/ 开头或 http(s)://），最多 8 条 */
+function validNav(raw: unknown): NavItem[] {
+  if (!Array.isArray(raw)) return []
+  const items: NavItem[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const { label, href } = item as Partial<NavItem>
+    if (typeof label !== 'string' || !label.trim()) continue
+    if (typeof href !== 'string' || !(href.startsWith('/') || /^https?:\/\//.test(href))) continue
+    items.push({ label: label.trim().slice(0, 24), href })
+    if (items.length >= 8) break
+  }
+  return items
+}
+
+/** 站点信息 + 导航。未配置 nav 时按内容给默认值（有关于页才加「关于」） */
 async function siteInfo(db: AppEnv['Bindings']['DB']): Promise<SiteInfoT> {
   const s = await db.prepare("SELECT value FROM blog_settings WHERE key = 'site'").first<{ value: string }>()
-  if (!s) return DEFAULT_SITE
+  let info = DEFAULT_SITE
+  if (s) {
+    try {
+      const parsed = JSON.parse(s.value) as Partial<SiteInfoT>
+      info = { name: parsed.name || DEFAULT_SITE.name, description: parsed.description ?? '', footer: parsed.footer ?? '' }
+    } catch {
+      /* 设置损坏则用默认站点信息 */
+    }
+  }
+  const nav = validNav(s ? safeParse(s.value)?.nav : undefined)
+  if (nav.length > 0) {
+    info.nav = nav
+    return info
+  }
+  // 默认导航：首页 / 归档 / 标签（/tags）+ 关于页存在时加「关于」
+  const about = await db.prepare("SELECT 1 FROM blog_pages WHERE slug = 'about' LIMIT 1").first()
+  info.nav = [{ label: '首页', href: '/' }, { label: '归档', href: '/archive' }, { label: '标签', href: '/tags' }]
+  if (about) info.nav.push({ label: '关于', href: '/page/about' })
+  return info
+}
+
+function safeParse(json: string): Record<string, unknown> | undefined {
   try {
-    const parsed = JSON.parse(s.value) as Partial<SiteInfoT>
-    return { name: parsed.name || DEFAULT_SITE.name, description: parsed.description ?? '', footer: parsed.footer ?? '' }
+    return JSON.parse(json) as Record<string, unknown>
   } catch {
-    return DEFAULT_SITE
+    return undefined
   }
 }
 
@@ -42,7 +78,7 @@ async function siteInfo(db: AppEnv['Bindings']['DB']): Promise<SiteInfoT> {
 async function resolveTheme(db: AppEnv['Bindings']['DB']): Promise<{
   mode: 'builtin' | 'custom'
   themeId?: string
-  render: (ctx: { site: SiteInfoT; title: string; tokens: ThemeTokens; headHtml?: string; footerHtml?: string }, body: any) => any
+  render: (ctx: { site: SiteInfoT; title: string; tokens: ThemeTokens; path?: string; headHtml?: string; footerHtml?: string }, body: any) => any
   tokens: ThemeTokens
   plugins: PluginConfig[]
 }> {
@@ -113,6 +149,7 @@ publicSite.get('/', async (c) => {
   if (theme.mode === 'custom' && theme.themeId) {
     const html = await renderLiquid(c.env, theme.themeId, 'index.liquid', {
       site: info,
+      path: '/',
       posts: posts.map((p) => ({ ...p, url: `/post/${p.slug}`, date: p.published_at ?? p.updated_at })),
     })
     if (html !== null) {
@@ -124,7 +161,7 @@ publicSite.get('/', async (c) => {
 
   const res = await c.html(
     await theme.render(
-      { site: info, title: info.name, tokens: theme.tokens },
+      { site: info, title: info.name, tokens: theme.tokens, path: '/' },
       <div>
         {posts.length === 0 && <p style={{ color: '#888' }}>还没有文章。</p>}
         {posts.map((p) => (
@@ -159,7 +196,10 @@ publicSite.get('/post/:slug', async (c) => {
   const info = await siteInfo(c.env.DB)
   const theme = await resolveTheme(c.env.DB)
   if (!row) {
-    return c.html(await theme.render({ site: info, title: '404', tokens: theme.tokens }, <p>文章不存在或未发布。</p>), 404)
+    return c.html(
+      await theme.render({ site: info, title: '404', tokens: theme.tokens, path }, <p>文章不存在或未发布。</p>),
+      404,
+    )
   }
 
   await c.env.DB.prepare('UPDATE blog_posts SET views = views + 1 WHERE id = ?').bind(row.id).run()
@@ -169,6 +209,7 @@ publicSite.get('/post/:slug', async (c) => {
   if (theme.mode === 'custom' && theme.themeId) {
     const html = await renderLiquid(c.env, theme.themeId, 'post.liquid', {
       site: info,
+      path,
       post: {
         title: row.title,
         html: renderMarkdown(row.content_md).html,
@@ -190,8 +231,11 @@ publicSite.get('/post/:slug', async (c) => {
 
   const res = await c.html(
     await theme.render(
-      { site: info, title: `${row.title} · ${info.name}`, tokens: theme.tokens, headHtml: m.head, footerHtml: m.footer },
+      { site: info, title: `${row.title} · ${info.name}`, tokens: theme.tokens, path, headHtml: m.head, footerHtml: m.footer },
       <article>
+        <a class="back" href="/">
+          ← {info.name}
+        </a>
         <h1>{row.title}</h1>
         <p class="meta">
           {new Date(row.published_at ?? row.updated_at).toLocaleDateString('zh-CN')} · {rendered.readingMinutes} 分钟阅读 ·{' '}
@@ -237,8 +281,11 @@ publicSite.get('/archive', async (c) => {
 
   const res = await c.html(
     await theme.render(
-      { site: info, title: `归档 · ${info.name}`, tokens: theme.tokens },
+      { site: info, title: `归档 · ${info.name}`, tokens: theme.tokens, path: '/archive' },
       <div>
+        <a class="back" href="/">
+          ← 首页
+        </a>
         <h1 class="page-title">归档</h1>
         {[...groups.entries()].map(([label, posts]) => (
           <div style={{ marginBottom: '2rem' }}>
@@ -259,6 +306,54 @@ publicSite.get('/archive', async (c) => {
 
 // ---------------------------------------------------------------- 标签
 
+/** 标签索引：已发布文章的标签聚合（按文章数排序） */
+publicSite.get('/tags', async (c) => {
+  const cached = await getCached(c.env, '/tags')
+  if (cached) return cached
+
+  const info = await siteInfo(c.env.DB)
+  const theme = await resolveTheme(c.env.DB)
+  const { results } = await c.env.DB.prepare(
+    `SELECT t.slug, t.name, COUNT(pt.post_id) AS n FROM blog_tags t
+     JOIN blog_post_tags pt ON pt.tag_id = t.id
+     JOIN blog_posts p ON p.id = pt.post_id AND p.status = 'published'
+     GROUP BY t.id ORDER BY n DESC, t.name LIMIT 100`,
+  ).all<{ slug: string; name: string; n: number }>()
+  const tags = results ?? []
+
+  const res = await c.html(
+    await theme.render(
+      { site: info, title: `标签 · ${info.name}`, tokens: theme.tokens, path: '/tags' },
+      <div>
+        <a class="back" href="/">
+          ← 首页
+        </a>
+        <h1 class="page-title">标签</h1>
+        {tags.length === 0 && <p style={{ color: '#888' }}>还没有标签。</p>}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.5rem' }}>
+          {tags.map((t) => (
+            <a
+              href={`/tag/${t.slug}`}
+              style={{
+                padding: '.3rem .85rem',
+                border: '1px solid #e8e8ec',
+                borderRadius: '999px',
+                fontSize: '.9rem',
+                background: '#ffffff88',
+              }}
+            >
+              {t.name}
+              <span style={{ color: '#999', fontSize: '.78rem', marginLeft: '.3rem' }}>{t.n}</span>
+            </a>
+          ))}
+        </div>
+      </div>,
+    ),
+  )
+  await putCached(c.env, '/tags', res)
+  return res
+})
+
 publicSite.get('/tag/:slug', async (c) => {
   const tagSlug = c.req.param('slug')
   const path = `/tag/${tagSlug}`
@@ -269,7 +364,7 @@ publicSite.get('/tag/:slug', async (c) => {
   const theme = await resolveTheme(c.env.DB)
   const tag = await c.env.DB.prepare('SELECT name FROM blog_tags WHERE slug = ?').bind(tagSlug).first<{ name: string }>()
   if (!tag) {
-    return c.html(await theme.render({ site: info, title: '404', tokens: theme.tokens }, <p>标签不存在。</p>), 404)
+    return c.html(await theme.render({ site: info, title: '404', tokens: theme.tokens, path }, <p>标签不存在。</p>), 404)
   }
   const { results } = await c.env.DB.prepare(
     `SELECT p.slug, p.title, p.published_at FROM blog_posts p
@@ -281,8 +376,11 @@ publicSite.get('/tag/:slug', async (c) => {
 
   const res = await c.html(
     await theme.render(
-      { site: info, title: `标签「${tag.name}」 · ${info.name}`, tokens: theme.tokens },
+      { site: info, title: `标签「${tag.name}」 · ${info.name}`, tokens: theme.tokens, path },
       <div>
+        <a class="back" href="/">
+          ← 首页
+        </a>
         <h1 class="page-title">标签「{tag.name}」</h1>
         {(results ?? []).length === 0 && <p style={{ color: '#888' }}>没有文章。</p>}
         {(results ?? []).map((p) => (
@@ -312,14 +410,17 @@ publicSite.get('/page/:slug', async (c) => {
     content_md: string
   }>()
   if (!row) {
-    return c.html(await theme.render({ site: info, title: '404', tokens: theme.tokens }, <p>页面不存在。</p>), 404)
+    return c.html(await theme.render({ site: info, title: '404', tokens: theme.tokens, path }, <p>页面不存在。</p>), 404)
   }
 
   const rendered = renderMarkdown(row.content_md)
   const res = await c.html(
     await theme.render(
-      { site: info, title: `${row.title} · ${info.name}`, tokens: theme.tokens },
+      { site: info, title: `${row.title} · ${info.name}`, tokens: theme.tokens, path },
       <article>
+        <a class="back" href="/">
+          ← 首页
+        </a>
         <h1>{row.title}</h1>
         <div dangerouslySetInnerHTML={{ __html: rendered.html }} />
       </article>,
@@ -365,7 +466,7 @@ publicSite.get('/sitemap.xml', async (c) => {
     slug: string
     updated_at: number
   }>()
-  const urls = ['/', '/archive', ...((results ?? []).map((p) => `/post/${p.slug}`)), ...((pages ?? []).map((p) => `/page/${p.slug}`))]
+  const urls = ['/', '/archive', '/tags', ...((results ?? []).map((p) => `/post/${p.slug}`)), ...((pages ?? []).map((p) => `/page/${p.slug}`))]
   const xml =
     `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` +
     urls.map((u) => `<url><loc>${base}${u.replace(/^\//, '')}</loc></url>`).join('') +

@@ -257,6 +257,7 @@ async function main() {
     check('health 200', res.status === 200 && json?.ok === true)
     const boot = await call('GET', '/api/bootstrap')
     check('bootstrap: 未初始化', boot.json?.initialized === false)
+    check('bootstrap: 部署模式', typeof boot.json?.deployMode === 'string')
     const home = await fetch(`${BASE}/`)
     check('SSR 首页 200', home.status === 200 && (await home.text()).includes('Miniblog'))
   }
@@ -417,6 +418,23 @@ async function main() {
     const sitemap = await fetch(`${BASE}/sitemap.xml`)
     const smText = await sitemap.text()
     check('sitemap 输出', sitemap.status === 200 && smText.includes('/post/标签测试文') && smText.includes('/page/about'))
+    check('sitemap 含 /tags', smText.includes('/tags'))
+
+    const tagsPage = await fetch(`${BASE}/tags`)
+    check('标签索引页', tagsPage.status === 200 && (await tagsPage.text()).includes('/tag/旅行'))
+
+    // TOC 只收录 H2/H3，用例需含 H2 才能断言 toc
+    const preview = await call('POST', '/api/preview', { body: { contentMd: '# 大标题\n\n## 小标题\n\n正文**加粗**。' } })
+    check(
+      '预览接口（服务端同管线）',
+      preview.res.status === 200 && (preview.json?.html ?? '').includes('<h1') && (preview.json?.toc?.length ?? 0) >= 1,
+    )
+
+    // 公开站导航：默认导航（首页/归档/标签/关于）渲染进页头
+    const navHome = await fetch(`${BASE}/`)
+    const navHtml = await navHome.text()
+    check('公开站页头导航', navHome.status === 200 && navHtml.includes('site-nav') && navHtml.includes('/archive') && navHtml.includes('/page/about'))
+    check('文章页返回链接', (await (await fetch(`${BASE}/post/标签测试文`)).text()).includes('class="back"'))
   }
 
   // 主题系统：切换主题 + tokens 即时生效
@@ -530,7 +548,29 @@ async function main() {
   // 设备列表
   {
     const sessions = await call('GET', '/api/auth/sessions')
-    check('设备列表含当前会话', (sessions.json?.sessions ?? []).some((s) => s.isCurrent))
+    const cur = (sessions.json?.sessions ?? []).find((s) => s.isCurrent)
+    check('设备列表含当前会话', !!cur)
+    check('设备列表字段 camelCase', !!cur && typeof cur.createdAt === 'number' && typeof cur.lastSeenAt === 'number' && !('created_at' in cur))
+  }
+
+  // Admin 安全响应头：仅 /admin/* HTML 携带 CSP；公开 SSR 页不携带（插件需注入 CDN script）
+  {
+    // /admin/ 为静态精确命中（run_worker_first 保证仍过 Worker）；/admin/login 为 SPA 回退
+    const admin = await fetch(`${BASE}/admin/`)
+    const fallback = await fetch(`${BASE}/admin/login`)
+    const home = await fetch(`${BASE}/`)
+    check(
+      'admin 页安全头（直出+回退）',
+      admin.status === 200 &&
+        fallback.status === 200 &&
+        (admin.headers.get('content-security-policy') ?? '').includes("script-src 'self'") &&
+        (fallback.headers.get('content-security-policy') ?? '').includes("script-src 'self'") &&
+        admin.headers.get('x-frame-options') === 'DENY',
+    )
+    check(
+      '公开页不带 CSP',
+      home.status === 200 && admin.headers.get('content-security-policy') !== null && home.headers.get('content-security-policy') === null,
+    )
   }
 
   console.log(`\n结果：${passed} 通过，${failed} 失败\n`)

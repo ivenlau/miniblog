@@ -71,6 +71,7 @@ auth.get('/bootstrap', async (c) => {
   const out: Record<string, unknown> = {
     initialized: !!user,
     authMethods: { password: !!user?.password_hash, totp: !!user?.totp_enabled },
+    deployMode: c.env.DEPLOY_MODE,
   }
   const token = getCookie(c, sessionCookieName(c.env))
   if (token && user) {
@@ -123,7 +124,7 @@ auth.post('/setup', async (c) => {
 
   const userId = ulid()
   const now = Date.now()
-  const email = typeof body.email === 'string' && body.email.includes('@') ? body.email.trim() : 'owner@minidriver.local'
+  const email = typeof body.email === 'string' && body.email.includes('@') ? body.email.trim() : 'owner@blog.local'
   const displayName = typeof body.displayName === 'string' && body.displayName.trim() ? body.displayName.trim() : 'Owner'
   const deviceName = typeof body.name === 'string' && body.name.trim() ? body.name.trim() : 'Primary passkey'
 
@@ -159,9 +160,9 @@ auth.post('/setup', async (c) => {
 auth.get('/auth/webauthn/setup/options', async (c) => {
   const existing = await c.env.DB.prepare('SELECT id FROM users LIMIT 1').first()
   if (existing) throw Errors.forbidden('ALREADY_INITIALIZED')
-  const email = c.req.query('email') || 'owner@minidriver.local'
+  const email = c.req.query('email') || 'owner@blog.local'
   const options = await generateRegistrationOptions({
-    rpName: 'MiniDriver',
+    rpName: 'Miniblog',
     rpID: rpID(c.env, c.req.url),
     userName: email,
     attestationType: 'none',
@@ -339,7 +340,15 @@ auth.get('/auth/sessions', requireAuth, async (c) => {
   return c.json({
     sessions: (results ?? [])
       .filter((s) => s.expires_at > now)
-      .map((s) => ({ ...s, isCurrent: s.id === currentId })),
+      .map((s) => ({
+        id: s.id,
+        createdAt: s.created_at,
+        lastSeenAt: s.last_seen_at,
+        expiresAt: s.expires_at,
+        userAgent: s.user_agent,
+        ipCountry: s.ip_country,
+        isCurrent: s.id === currentId,
+      })),
   })
 })
 
@@ -367,7 +376,7 @@ auth.get('/auth/webauthn/register/options', requireAuth, async (c) => {
     .bind(user.id)
     .all<{ id: string; transports: string | null }>()
   const options = await generateRegistrationOptions({
-    rpName: 'MiniDriver',
+    rpName: 'Miniblog',
     rpID: rpID(c.env, c.req.url),
     userName: user.email,
     userDisplayName: user.display_name,

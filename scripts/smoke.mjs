@@ -418,6 +418,31 @@ async function main() {
     check('sitemap 输出', sitemap.status === 200 && smText.includes('/post/标签测试文') && smText.includes('/page/about'))
   }
 
+  // 素材联动（standalone：LocalAssetStore + 本域直链）
+  {
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4])
+    const up = await call('POST', `/api/upload?name=${encodeURIComponent('pixel.png')}&mime=${encodeURIComponent('image/png')}`, {
+      raw: true,
+      body: png,
+    })
+    check('上传素材', up.res.status === 201 && up.json?.url?.includes('/assets/'), JSON.stringify(up.json))
+    const slug = up.json?.url?.split('/assets/')[1]
+
+    const list = await call('GET', '/api/assets?mime=image/%')
+    check('素材列表', list.json?.items?.some((i) => i.url === up.json?.url))
+
+    const direct = await fetch(`${BASE}/assets/${slug}`)
+    const buf = new Uint8Array(await direct.arrayBuffer())
+    check(
+      '素材直链（无鉴权+缓存+CORS）',
+      direct.status === 200 && direct.headers.get('content-type') === 'image/png' && (direct.headers.get('cache-control') ?? '').includes('public') && buf[1] === 0x50,
+      `status=${direct.status} ct=${direct.headers.get('content-type')}`,
+    )
+
+    const noauth = await fetch(`${BASE}/api/assets`)
+    check('素材列表需登录', noauth.status === 401)
+  }
+
   // 设备列表
   {
     const sessions = await call('GET', '/api/auth/sessions')

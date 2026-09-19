@@ -5,6 +5,7 @@ import { Eye, Save } from 'lucide-react'
 import { api } from '../lib/api'
 import type { PostDto } from '../lib/types'
 import { Button, ConfirmDialog, Input, Spinner, cn } from '../components/ui'
+import { AssetPanel } from './EditorPage.asset-panel'
 import { useToast } from '../state/toast'
 
 type Draft = {
@@ -106,6 +107,8 @@ export function EditorPage() {
     setShowPreview(true)
   }
 
+  const insertAsset = (markdown: string) => set({ contentMd: `${draft.contentMd}${draft.contentMd.endsWith('\n') || !draft.contentMd ? '' : '\n'}${markdown}` })
+
   return (
     <div className="mx-auto max-w-6xl px-6 py-8">
       <div className="mb-5 flex flex-wrap items-center gap-3">
@@ -159,8 +162,9 @@ export function EditorPage() {
             onChange={(e) => set({ contentMd: e.target.value })}
             placeholder="Markdown 正文…"
             spellCheck={false}
-            className="h-[56dvh] w-full resize-none rounded-xl border border-line bg-surface p-4 font-mono text-[13.5px] leading-relaxed text-text outline-none focus:border-accent md:text-[13px]"
+            className="h-[42dvh] w-full resize-none rounded-xl border border-line bg-surface p-4 font-mono text-[13.5px] leading-relaxed text-text outline-none focus:border-accent md:text-[13px]"
           />
+          <AssetPanel onInsert={insertAsset} />
         </div>
         <div
           className={cn(

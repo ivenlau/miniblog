@@ -5,10 +5,13 @@ import { ulid } from '../lib/ids'
 import { requireAuth } from '../middleware'
 import { purgeBlogCache } from '../lib/cache'
 import { renderMarkdown, slugFromTitle } from '../render/markdown'
+import { assetStore } from '../lib/assets'
 import { readJson } from '../lib/validate'
 
 /** Admin API（全部需会话）：博客文章 CRUD / 发布流 / 标签 / 预览 */
 export const adminApi = new Hono<AppEnv>().use('*', requireAuth)
+
+const IMAGE_RE = /^image\//
 
 type PostRow = {
   id: string
@@ -279,6 +282,25 @@ adminApi.get('/settings', async (c) => {
     }
   }
   return c.json(out)
+})
+
+// ---------------------------------------------------------------- 素材（联动 minidriver / 本地）
+
+/** 上传素材：图片等 ≤8MB；返回可用于 Markdown 的直链 */
+adminApi.post('/upload', async (c) => {
+  const name = c.req.query('name') || 'image'
+  const mime = c.req.query('mime') || 'application/octet-stream'
+  const body = await c.req.arrayBuffer()
+  const store = assetStore(c.env)
+  const asset = await store.upload({ name, mime, body }, '')
+  return c.json(asset, 201)
+})
+
+adminApi.get('/assets', async (c) => {
+  const mime = c.req.query('mime') ?? 'image/%'
+  const store = assetStore(c.env)
+  const items = await store.listImages()
+  return c.json({ items: mime === 'image/%' ? items.filter((i) => IMAGE_RE.test(i.mime)) : items })
 })
 
 adminApi.put('/settings', async (c) => {

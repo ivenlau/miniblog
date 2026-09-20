@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import type { AppEnv } from '../lib/env'
 import { getCached, putCached, purgeBlogCache } from '../lib/cache'
+import { publicOrigin } from '../lib/env'
 import { renderMarkdown } from '../render/markdown'
 import { renderLiquid } from '../render/liquid'
 import { renderMount } from '../plugins/registry'
@@ -143,7 +144,7 @@ function esc(s: string): string {
 // ---------------------------------------------------------------- 首页
 
 publicSite.get('/', async (c) => {
-  const cached = await getCached(c.env, '/')
+  const cached = await getCached(c.env, '/', c.req.url)
   if (cached) return cached
 
   const info = await siteInfo(c.env.DB)
@@ -165,7 +166,7 @@ publicSite.get('/', async (c) => {
     })
     if (html !== null) {
       const res = new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8' } })
-      await putCached(c.env, '/', res)
+      await putCached(c.env, '/', res, c.req.url)
       return res
     }
   }
@@ -195,7 +196,7 @@ publicSite.get('/', async (c) => {
       </div>,
     ),
   )
-  await putCached(c.env, '/', res)
+  await putCached(c.env, '/', res, c.req.url)
   return res
 })
 
@@ -203,7 +204,7 @@ publicSite.get('/', async (c) => {
 
 publicSite.get('/post/:slug', async (c) => {
   const path = `/post/${c.req.param('slug')}`
-  const cached = await getCached(c.env, path)
+  const cached = await getCached(c.env, path, c.req.url)
   if (cached) return cached
 
   const row = await c.env.DB.prepare("SELECT * FROM blog_posts WHERE slug = ? AND status = 'published'")
@@ -237,7 +238,7 @@ publicSite.get('/post/:slug', async (c) => {
     })
     if (html !== null) {
       const res = new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8' } })
-      await putCached(c.env, path, res)
+      await putCached(c.env, path, res, c.req.url)
       return res
     }
   }
@@ -261,14 +262,14 @@ publicSite.get('/post/:slug', async (c) => {
       </article>,
     ),
   )
-  await putCached(c.env, path, res)
+  await putCached(c.env, path, res, c.req.url)
   return res
 })
 
 // ---------------------------------------------------------------- 归档
 
 publicSite.get('/archive', async (c) => {
-  const cached = await getCached(c.env, '/archive')
+  const cached = await getCached(c.env, '/archive', c.req.url)
   if (cached) return cached
 
   const info = await siteInfo(c.env.DB)
@@ -302,7 +303,7 @@ publicSite.get('/archive', async (c) => {
       </div>,
     ),
   )
-  await putCached(c.env, '/archive', res)
+  await putCached(c.env, '/archive', res, c.req.url)
   return res
 })
 
@@ -310,7 +311,7 @@ publicSite.get('/archive', async (c) => {
 
 /** 标签索引：已发布文章的标签聚合（按文章数排序） */
 publicSite.get('/tags', async (c) => {
-  const cached = await getCached(c.env, '/tags')
+  const cached = await getCached(c.env, '/tags', c.req.url)
   if (cached) return cached
 
   const info = await siteInfo(c.env.DB)
@@ -349,14 +350,14 @@ publicSite.get('/tags', async (c) => {
       </div>,
     ),
   )
-  await putCached(c.env, '/tags', res)
+  await putCached(c.env, '/tags', res, c.req.url)
   return res
 })
 
 publicSite.get('/tag/:slug', async (c) => {
   const tagSlug = c.req.param('slug')
   const path = `/tag/${tagSlug}`
-  const cached = await getCached(c.env, path)
+  const cached = await getCached(c.env, path, c.req.url)
   if (cached) return cached
 
   const info = await siteInfo(c.env.DB)
@@ -387,7 +388,7 @@ publicSite.get('/tag/:slug', async (c) => {
       </div>,
     ),
   )
-  await putCached(c.env, path, res)
+  await putCached(c.env, path, res, c.req.url)
   return res
 })
 
@@ -396,7 +397,7 @@ publicSite.get('/tag/:slug', async (c) => {
 publicSite.get('/page/:slug', async (c) => {
   const pageSlug = c.req.param('slug')
   const path = `/page/${pageSlug}`
-  const cached = await getCached(c.env, path)
+  const cached = await getCached(c.env, path, c.req.url)
   if (cached) return cached
 
   const info = await siteInfo(c.env.DB)
@@ -419,7 +420,7 @@ publicSite.get('/page/:slug', async (c) => {
       </article>,
     ),
   )
-  await putCached(c.env, path, res)
+  await putCached(c.env, path, res, c.req.url)
   return res
 })
 
@@ -429,7 +430,7 @@ const RSS_HEADERS = { 'content-type': 'application/rss+xml; charset=utf-8', 'cac
 
 publicSite.get('/rss.xml', async (c) => {
   const info = await siteInfo(c.env.DB)
-  const base = new URL(c.env.APP_PUBLIC_URL).toString()
+  const base = publicOrigin(c.env, c.req.url).replace(/\/$/, '') + '/'
   const { results } = await c.env.DB.prepare(
     "SELECT slug, title, summary, published_at FROM blog_posts WHERE status = 'published' ORDER BY published_at DESC LIMIT 20",
   ).all<{ slug: string; title: string; summary: string; published_at: number | null }>()
@@ -450,7 +451,7 @@ publicSite.get('/rss.xml', async (c) => {
 })
 
 publicSite.get('/sitemap.xml', async (c) => {
-  const base = new URL(c.env.APP_PUBLIC_URL).toString()
+  const base = publicOrigin(c.env, c.req.url).replace(/\/$/, '') + '/'
   const { results } = await c.env.DB.prepare("SELECT slug, updated_at FROM blog_posts WHERE status = 'published'").all<{
     slug: string
     updated_at: number

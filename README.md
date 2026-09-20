@@ -41,8 +41,13 @@ npm run smoke
 
 1. Cloudflare 建 D1 / R2 / API Token（权限含 D1 Edit + Workers Scripts Edit + R2 Edit）
 2. GitHub Secrets：`CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`、`D1_DATABASE_ID`、`R2_BUCKET_NAME`
-3. `wrangler.jsonc` 把 `APP_PUBLIC_URL` 改成真实域名（RP/CSRF/直链都取自它）后推送 main
-4. 部署后在 Cloudflare 加 Secrets：`SESSION_ENC_KEY`、`SETUP_TOKEN` → 首访 `/admin/setup` 初始化
+3. push main 即可——代码不含任何域名/ID，运行时自动适配访问域名（单域名零配置）
+4. 部署后在 Cloudflare（Worker → Settings → Variables and Secrets，设置一次永久生效）：
+   - `SESSION_ENC_KEY`：32 字节 base64（生成命令见 `.dev.vars.example`）
+   - `SETUP_TOKEN`：自拟初始化口令
+   - `APP_PUBLIC_URL`：规范域名（如 `https://blog.example.com`）——**绑自定义域后必填**（RP/CSRF/直链的权威来源）；单域名可不填（自动取访问域）
+   - `AUTH_RP_ID` / `AUTH_COOKIE_DOMAIN`：可选 SSO 联动（见下表）
+5. 首访 `/admin/setup` 初始化
 
 ### 与 Minidriver 联动（可选，配置收敛）
 
@@ -53,7 +58,7 @@ npm run smoke
 | GitHub Secrets `D1_DATABASE_ID` | 共账号/会话/凭证 + 素材元数据（nodes 表，双方向迁移幂等，任意顺序部署） |
 | GitHub Secrets `R2_BUCKET_NAME` | 共文件存储 |
 | CF Secrets `SESSION_ENC_KEY` / `SETUP_TOKEN` | 需同值（共享 TOTP 密文与初始化语义） |
-| vars `AUTH_RP_ID` + `AUTH_COOKIE_DOMAIN` = `<根域>` | 再加 SSO：一处登录两站通用，Passkey 跨应用（依赖 PSL） |
+| CF Secrets/变量 `AUTH_RP_ID` + `AUTH_COOKIE_DOMAIN` = `<根域>`（dashboard 设置） | 再加 SSO：一处登录两站通用，Passkey 跨应用（依赖 PSL） |
 
 不配以上重合 → 两应用完全独立。联动时素材在网盘「博客素材/」目录可见可管理；直链始终走博客本域，网盘侧彻底删除文件后链接自然失效。
 
@@ -63,7 +68,7 @@ npm run smoke
 |---|---|---|
 | D1 database_id | dashboard → D1 详情页 | GitHub Secret `D1_DATABASE_ID` / wrangler.jsonc |
 | Account ID / API Token | dashboard / My Profile → API Tokens | GitHub Secrets |
-| SESSION_ENC_KEY / SETUP_TOKEN / APP_PUBLIC_URL | 本机生成 / 自拟 / 你的域名 | Cloudflare Worker Secrets |
+| SESSION_ENC_KEY / SETUP_TOKEN / APP_PUBLIC_URL / AUTH_* | 本机生成 / 自拟 / 你的域名 | Cloudflare Worker Secrets（变量和 Secrets 页） |
 
 ---
 

@@ -1,17 +1,19 @@
 import type { Env } from './env'
 
-/** 公开页缓存（Cache API）：键为 APP_PUBLIC_URL 下的完整 URL */
+import { publicOrigin } from './env'
 
-function key(env: Env, path: string): string {
-  return new URL(path, env.APP_PUBLIC_URL).toString()
+/** 公开页缓存（Cache API）：键为规范来源（APP_PUBLIC_URL 或请求来源）下的完整 URL */
+
+function key(env: Env, path: string, requestUrl: string): string {
+  return new URL(path, publicOrigin(env, requestUrl)).toString()
 }
 
-export async function getCached(env: Env, path: string): Promise<Response | undefined> {
-  return caches.default.match(key(env, path))
+export async function getCached(env: Env, path: string, requestUrl: string): Promise<Response | undefined> {
+  return caches.default.match(key(env, path, requestUrl))
 }
 
-export async function putCached(env: Env, path: string, res: Response): Promise<void> {
-  await caches.default.put(key(env, path), res.clone())
+export async function putCached(env: Env, path: string, res: Response, requestUrl: string): Promise<void> {
+  await caches.default.put(key(env, path, requestUrl), res.clone())
 }
 
 /**
@@ -21,6 +23,7 @@ export async function putCached(env: Env, path: string, res: Response): Promise<
 export async function purgeBlogCache(
   env: Env,
   opts: { slug?: string; tagSlugs?: string[]; pageSlug?: string } = {},
+  requestUrl: string,
 ): Promise<void> {
   const paths = ['/', '/archive', '/tags', '/rss.xml', '/sitemap.xml']
   if (opts.slug) paths.push(`/post/${opts.slug}`)
@@ -30,5 +33,5 @@ export async function purgeBlogCache(
     slug: string
   }>()
   for (const r of results ?? []) paths.push(`/post/${r.slug}`)
-  await Promise.all(paths.map((p) => caches.default.delete(key(env, p))))
+  await Promise.all(paths.map((p) => caches.default.delete(key(env, p, requestUrl))))
 }

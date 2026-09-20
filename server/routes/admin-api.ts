@@ -202,8 +202,8 @@ adminApi.put('/posts/:id', async (c) => {
 
   // 已发布内容的缓存清理（slug 变更时新旧都清）
   if (old.status === 'published') {
-    await purgeBlogCache(c.env, { slug: old.slug })
-    if (slug !== old.slug) await purgeBlogCache(c.env, { slug })
+    await purgeBlogCache(c.env, { slug: old.slug }, c.req.url)
+    if (slug !== old.slug) await purgeBlogCache(c.env, { slug }, c.req.url)
   }
   const row = await getPost(c.env.DB, old.id)
   return c.json(toDto(row, await postTags(c.env.DB, row.id)))
@@ -213,7 +213,7 @@ adminApi.delete('/posts/:id', async (c) => {
   const row = await getPost(c.env.DB, c.req.param('id'))
   const tags = row.status === 'published' ? await tagSlugsOfPost(c.env.DB, row.id) : []
   await c.env.DB.prepare('DELETE FROM blog_posts WHERE id = ?').bind(row.id).run()
-  if (row.status === 'published') await purgeBlogCache(c.env, { slug: row.slug, tagSlugs: tags })
+  if (row.status === 'published') await purgeBlogCache(c.env, { slug: row.slug, tagSlugs: tags }, c.req.url)
   return c.json({ ok: true })
 })
 
@@ -225,14 +225,14 @@ adminApi.post('/posts/:id/publish', async (c) => {
   )
     .bind(now, now, row.id)
     .run()
-  await purgeBlogCache(c.env, { tagSlugs: await tagSlugsOfPost(c.env.DB, row.id) })
+  await purgeBlogCache(c.env, { tagSlugs: await tagSlugsOfPost(c.env.DB, row.id) }, c.req.url)
   return c.json({ ok: true })
 })
 
 adminApi.post('/posts/:id/unpublish', async (c) => {
   const row = await getPost(c.env.DB, c.req.param('id'))
   await c.env.DB.prepare('UPDATE blog_posts SET status = "draft", updated_at = ? WHERE id = ?').bind(Date.now(), row.id).run()
-  await purgeBlogCache(c.env, { slug: row.slug, tagSlugs: await tagSlugsOfPost(c.env.DB, row.id) })
+  await purgeBlogCache(c.env, { slug: row.slug, tagSlugs: await tagSlugsOfPost(c.env.DB, row.id) }, c.req.url)
   return c.json({ ok: true })
 })
 
@@ -259,13 +259,13 @@ adminApi.put('/pages/:slug', async (c) => {
   )
     .bind(ulid(), slug, title, contentMd, now)
     .run()
-  await purgeBlogCache(c.env, { pageSlug: slug })
+  await purgeBlogCache(c.env, { pageSlug: slug }, c.req.url)
   return c.json({ slug, title, contentMd, updatedAt: now })
 })
 
 adminApi.delete('/pages/:slug', async (c) => {
   await c.env.DB.prepare('DELETE FROM blog_pages WHERE slug = ?').bind(c.req.param('slug')).run()
-  await purgeBlogCache(c.env, { pageSlug: c.req.param('slug') })
+  await purgeBlogCache(c.env, { pageSlug: c.req.param('slug') }, c.req.url)
   return c.json({ ok: true })
 })
 
@@ -292,14 +292,14 @@ adminApi.post('/upload', async (c) => {
   const mime = c.req.query('mime') || 'application/octet-stream'
   const body = await c.req.arrayBuffer()
   const store = assetStore(c.env)
-  const asset = await store.upload({ name, mime, body }, '')
+  const asset = await store.upload({ name, mime, body }, '', c.req.url)
   return c.json(asset, 201)
 })
 
 adminApi.get('/assets', async (c) => {
   const mime = c.req.query('mime') ?? 'image/%'
   const store = assetStore(c.env)
-  const items = await store.listImages()
+  const items = await store.listImages(c.req.url)
   return c.json({ items: mime === 'image/%' ? items.filter((i) => IMAGE_RE.test(i.mime)) : items })
 })
 
@@ -313,6 +313,6 @@ adminApi.put('/settings', async (c) => {
       .bind(key, JSON.stringify(value))
       .run()
   }
-  await purgeBlogCache(c.env)
+  await purgeBlogCache(c.env, {}, c.req.url)
   return c.json({ ok: true })
 })

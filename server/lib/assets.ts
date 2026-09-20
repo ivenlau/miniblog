@@ -1,4 +1,5 @@
 import type { AppEnv, Env } from './env'
+import { publicOrigin } from './env'
 import { ulid, randomToken } from './ids'
 import { Errors } from './errors'
 
@@ -16,7 +17,7 @@ async function generateSlug(db: DB): Promise<string> {
 
 /**
  * 素材层（唯一实现）：博客图片/文件统一存入 nodes 契约表（博客素材/YYYY-MM/）+ R2 f/<id>，
- * 直链由本应用提供：<APP_PUBLIC_URL>/assets/<slug>（不依赖网盘图床端点）。
+ * 直链由本应用提供：<规范来源>/assets/<slug>（不依赖网盘图床端点）。
  * 部署指向与 minidriver 相同的 D1/R2 时自动联动（素材在网盘可见、可管理）；
  * 指向不同资源时 nodes 即博客自己的表，行为完全一致。
  */
@@ -24,8 +25,8 @@ export type UploadedAsset = { url: string; id: string; name: string; mime: strin
 export type AssetListItem = { id: string; url: string; name: string; mime: string; size: number; date: number }
 
 export interface AssetStore {
-  upload(file: { name: string; mime: string; body: ArrayBuffer }, folder: string): Promise<UploadedAsset>
-  listImages(): Promise<AssetListItem[]>
+  upload(file: { name: string; mime: string; body: ArrayBuffer }, folder: string, requestUrl: string): Promise<UploadedAsset>
+  listImages(requestUrl: string): Promise<AssetListItem[]>
 }
 
 const MAX_UPLOAD = 8 * 1024 * 1024
@@ -50,7 +51,7 @@ export class NodeAssetStore implements AssetStore {
     return id
   }
 
-  async upload(file: { name: string; mime: string; body: ArrayBuffer }, folder: string): Promise<UploadedAsset> {
+  async upload(file: { name: string; mime: string; body: ArrayBuffer }, folder: string, requestUrl: string): Promise<UploadedAsset> {
     if (file.body.byteLength > MAX_UPLOAD) throw Errors.badRequest('CONTENT_TOO_LARGE')
     const month = new Date().toISOString().slice(0, 7)
     const rootId = await this.ensureFolder('博客素材', null)
@@ -80,12 +81,12 @@ export class NodeAssetStore implements AssetStore {
       .bind(id, name, folderId, file.body.byteLength, file.mime, r2Key, slug, now, now)
       .run()
 
-    const base = new URL(this.env.APP_PUBLIC_URL).origin
+    const base = publicOrigin(this.env, requestUrl)
     return { url: `${base}/assets/${slug}`, id, name, mime: file.mime, size: file.body.byteLength }
   }
 
-  async listImages(): Promise<AssetListItem[]> {
-    const base = new URL(this.env.APP_PUBLIC_URL).origin
+  async listImages(requestUrl: string): Promise<AssetListItem[]> {
+    const base = publicOrigin(this.env, requestUrl)
     const { results } = await this.env.DB.prepare(
       `SELECT id, name, mime, size, public_slug, updated_at FROM nodes
        WHERE type = 'file' AND mime LIKE 'image/%' AND deleted_at IS NULL AND public_slug IS NOT NULL

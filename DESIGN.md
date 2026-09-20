@@ -97,16 +97,18 @@
 | GitHub Secrets `D1_DATABASE_ID` | 共账号/会话/凭证 + 素材元数据（nodes 表） |
 | GitHub Secrets `R2_BUCKET_NAME`（构建时注入 wrangler.jsonc） | 共文件存储 |
 | CF Secrets `SESSION_ENC_KEY` / `SETUP_TOKEN` | 需同值（共享 TOTP 密文与初始化语义） |
-| vars `AUTH_RP_ID` + `AUTH_COOKIE_DOMAIN` = `<根域>` | SSO：一处登录两站通用；Passkey 跨应用（依赖 PSL） |
+| CF Secrets `AUTH_RP_ID` + `AUTH_COOKIE_DOMAIN` = `<根域>` | SSO：一处登录两站通用；Passkey 跨应用（依赖 PSL） |
 
 - 会话 Cookie：设 `AUTH_COOKIE_DOMAIN` → `__Secure-md-session` + Domain（SSO）；未设 → `__Host-md-session`（各自登录，账号仍共享）
 - **素材统一走 nodes 契约表**（博客素材/YYYY-MM/，R2 `f/<id>`），直链由**博客本域**提供（`/assets/<public_slug>`），不依赖网盘 `/i/` 端点；网盘侧彻底删除文件后链接自然失效
 - **共享契约表**：认证表（1001）+ nodes（1003，最终形态含 public_slug）全部 `IF NOT EXISTS` 且与 minidriver 0001 逐字同构——**任意一方先部署**到同一 D1 都能收敛；driver 的 0001 已幂等化、0003 退役为说明
 - 独立部署（不与 minidriver 重合）时，nodes 即博客自己的表，行为完全一致
 
-### 3.2 联动的部署配置清单
+### 3.2 域名与机密的归属（与 minidriver 同模式）
 
-见 README「与 Minidriver 联动」表格；`DRIVER_PUBLIC_URL` 已删除（博客不再需要网盘域名）。
+- `APP_PUBLIC_URL` 是 **Cloudflare Secret**（dashboard 一次设置，部署永不覆盖），不在 wrangler.jsonc——代码零基础设施信息；未设置时运行时回退当前请求来源（单域名零配置）
+- `DRIVER_PUBLIC_URL` 已删除（博客不再需要网盘域名）；`AUTH_RP_ID`/`AUTH_COOKIE_DOMAIN` 为可选 SSO 配置（dashboard）
+- 见 README「与 Minidriver 联动」表格。
 
 ---
 

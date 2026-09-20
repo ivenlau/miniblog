@@ -58,7 +58,7 @@ npm run smoke
 | GitHub Secrets `D1_DATABASE_ID` | 共账号/会话/凭证 + 素材元数据（nodes 表，双方向迁移幂等，任意顺序部署） |
 | GitHub Secrets `R2_BUCKET_NAME` | 共文件存储 |
 | CF Secrets `SESSION_ENC_KEY` / `SETUP_TOKEN` | 需同值（共享 TOTP 密文与初始化语义） |
-| 变量 `BASE_DOMAIN_AUTH` = `true`（两侧 dashboard 设置） | 再加 SSO：一处登录两站通用，Passkey 跨应用。根域从 APP_PUBLIC_URL 自动推导（支持 com.cn/co.uk 等常见多级后缀；PSL 托管域不适用） |
+| 变量 `BASE_DOMAIN_AUTH` = `true`（两侧 dashboard 设置） | 再加 SSO：一处登录两站通用，Passkey 跨应用。共享域 = 部署域名去掉第一段（`f.minimo.qzz.io` ↔ `b.minimo.qzz.io` → `minimo.qzz.io`；`blog.xx.com` → `xx.com`），直接部署在根域上时取根域自身——公共后缀由使用者保证 |
 
 不配以上重合 → 两应用完全独立。联动时素材在网盘「博客素材/」目录可见可管理；直链始终走博客本域，网盘侧彻底删除文件后链接自然失效。
 

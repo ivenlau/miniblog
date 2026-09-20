@@ -97,7 +97,7 @@
 | GitHub Secrets `D1_DATABASE_ID` | 共账号/会话/凭证 + 素材元数据（nodes 表） |
 | GitHub Secrets `R2_BUCKET_NAME`（构建时注入 wrangler.jsonc） | 共文件存储 |
 | CF Secrets `SESSION_ENC_KEY` / `SETUP_TOKEN` | 需同值（共享 TOTP 密文与初始化语义） |
-| 变量 `BASE_DOMAIN_AUTH` = `true`（两侧 dashboard 设置） | SSO：一处登录两站通用；Passkey 跨应用（根域自动推导，依赖 PSL） |
+| 变量 `BASE_DOMAIN_AUTH` = `true`（两侧 dashboard 设置） | SSO：一处登录两站通用；Passkey 跨应用 |
 
 - 会话 Cookie：开 `BASE_DOMAIN_AUTH` → `__Secure-md-session` + 根域 Domain（SSO，根域自动推导）；未开 → `__Host-md-session`（各自登录，账号仍共享）
 - **素材统一走 nodes 契约表**（博客素材/YYYY-MM/，R2 `f/<id>`），直链由**博客本域**提供（`/assets/<public_slug>`），不依赖网盘 `/i/` 端点；网盘侧彻底删除文件后链接自然失效

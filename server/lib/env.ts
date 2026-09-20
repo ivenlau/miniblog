@@ -45,27 +45,16 @@ export function allowedOrigins(env: Env, requestUrl?: string): string[] {
   return list.length > 0 ? list : [publicOrigin(env, requestUrl ?? '')]
 }
 
-/** 常见多级公共后缀（个人场景够用；完整 PSL 不内置） */
-const MULTI_LABEL_SUFFIXES = new Set([
-  'com.cn', 'net.cn', 'org.cn', 'gov.cn', 'ac.cn',
-  'co.uk', 'org.uk', 'com.au', 'co.jp', 'com.hk', 'com.tw', 'com.sg',
-])
-
-/** 主机名的可注册根域（eTLD+1；仅支持常见后缀，PSL 托管域不适用） */
-export function rootDomain(host: string): string {
-  const labels = host.split('.').filter(Boolean)
-  const last2 = labels.slice(-2).join('.')
-  if (MULTI_LABEL_SUFFIXES.has(labels.slice(-2).join('.'))) return labels.slice(-3).join('.')
-  return last2
-}
-
 /**
- * 跨子域共享认证开启时的根域（BASE_DOMAIN_AUTH="true"）；未开启返回 undefined。
- * 根域从规范来源（APP_PUBLIC_URL 或请求域）推导，无需手填。
+ * 跨子域共享认证开启时的共享域（BASE_DOMAIN_AUTH="true"）；未开启返回 undefined。
+ * 共享域 = 主机名去掉第一段（a.b.c.d → b.c.d；不足三段回退自身）——
+ * 部署域名即「根域 + 一段前缀」（如 f./b./blog.），公共后缀由使用者保证。
  */
 export function sharedAuthDomain(env: Env, requestUrl: string): string | undefined {
   if (env.BASE_DOMAIN_AUTH !== 'true') return undefined
-  return rootDomain(new URL(publicOrigin(env, requestUrl)).hostname)
+  const host = new URL(publicOrigin(env, requestUrl)).hostname
+  const labels = host.split('.').filter(Boolean)
+  return labels.length < 3 ? host : labels.slice(1).join('.')
 }
 
 /** WebAuthn RP ID：跨子域共享认证开启时统一根域，否则完整主机名 */

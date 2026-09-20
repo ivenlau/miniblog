@@ -34,7 +34,7 @@ export function SecuritySection() {
   const { t, i18n } = useTranslation()
   const toast = useToast()
   const qc = useQueryClient()
-  const { deployMode } = useAdminShell()
+  const { ssoEnabled } = useAdminShell()
   const { data: me } = useMe()
 
   const refresh = () => {
@@ -73,7 +73,7 @@ export function SecuritySection() {
 
   return (
     <div>
-      {deployMode === 'linked' && (
+      {ssoEnabled && (
         <div className="mb-5 flex gap-2.5 rounded-xl border border-warn/40 bg-warn-soft px-4 py-3 text-[13px] leading-relaxed text-warn">
           <ShieldCheck size={16} className="mt-0.5 shrink-0" />
           <span>{t('settings.sharedModeHint')}</span>

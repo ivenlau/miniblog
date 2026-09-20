@@ -1,5 +1,6 @@
 # 推送 main 自动：类型检查 → D1 审计 → 构建 → 冒烟 → 迁移 → 部署
-# GitHub Secrets：CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID / D1_DATABASE_ID（同 minidriver 工作流）
+# GitHub Secrets：CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID / D1_DATABASE_ID / R2_BUCKET_NAME
+# （与 minidriver 仓库配同值即联动：共享账号与素材库）
 name: Deploy
 
 on:
@@ -19,6 +20,7 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+      R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

@@ -56,11 +56,11 @@ export function SettingsPage() {
   )
 }
 
-/** linked 部署徽章：账号与安全数据与 Minidriver 共库 */
+/** 联动徽章：配置了 SSO 域（两应用共享登录与账号数据）时显示 */
 export function SecurityBadge() {
   const { t } = useTranslation()
-  const { deployMode } = useAdminShell()
-  if (deployMode !== 'linked') return null
+  const { ssoEnabled } = useAdminShell()
+  if (!ssoEnabled) return null
   return (
     <span className="rounded-full bg-warn-soft px-1.5 py-0.5 text-[10px] font-medium leading-none text-warn">
       {t('settings.sharedModeBadge')}

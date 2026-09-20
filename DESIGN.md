@@ -1,11 +1,11 @@
 # Miniblog — 轻量级个人博客系统设计文档
 
 > 与 Minidriver 同系的 Cloudflare Workers 全栈博客：SSR 公开站 + 可移植同源认证 + 素材联动 + 主题/插件系统。
-> 支持两种部署形态：**独立部署**（自带 D1/R2 与完整认证）与**联动部署**（与 Minidriver 共库共桶、SSO、图床直链）。
+> 与 Minidriver 的联动由**部署配置收敛**决定（同一 D1/R2 即共享账号与素材，无需模式开关，见 §3.1）。
 
 | | |
 |---|---|
-| 版本 | v1.2（v1.1 定稿 + Admin 设计系统/公开站导航增补，已实施） |
+| 版本 | v1.3（v1.2 + 去模式开关：联动由部署配置收敛决定，已实施） |
 | 日期 | 2026-09-19 |
 | 状态 | Implemented |
 | 产品名 | Miniblog |
@@ -76,38 +76,37 @@
                 │   ┌────▼────┐            ┌─────▼──────┐                  │
                 │   │ AuthCore│            │ AssetStore │                  │
                 │   └────┬────┘            └─────┬──────┘                  │
-                │        │      DEPLOY_MODE       │                        │
-                │   standalone：自建认证表        standalone：blog_assets+R2  │
-                │   linked：共享 minidriver 表    linked：nodes 表+图床直链    │
+                │        │   配置收敛（同 D1/R2 即联动）    │                  │
+                │   共享契约表：认证 + nodes（素材元数据）│                      │
+                │   素材文件 R2 f/<id>，直链本域 /assets/<slug>│                 │
                 └────────────────┬────────────────────────────────────────┘
-                                 │ （linked 模式）
-                Worker: minidriver（f.<根域>）—— 认证同源 + 图床直链 /i/:slug
+                                 │ （D1/R2 配置重合 = 联动；否则各自独立）
+                Worker: minidriver（f.<根域>）—— 共享同一账号体系与素材库
 ```
 
 **路由策略**：`"run_worker_first": true`——所有请求先进 Worker；`/admin/*` 走 ASSETS 绑定（SPA 回退），其余 SSR。
 
 **缓存**：公开页渲染后写 Cache API，发布/删除/设置变更按 URL 清单清除；Admin 与 API 不缓存。
 
-### 3.1 部署模式（`DEPLOY_MODE`）
+### 3.1 联动模型：部署配置收敛（v1.3 起，DEPLOY_MODE 已移除）
 
-| | **standalone 独立部署** | **linked 联动部署** |
-|---|---|---|
-| D1 | 自己的库：AuthCore 幂等建表 + `blog_*` | minidriver 同库：认证表已存在（建表幂等跳过）+ `blog_*` |
-| R2 | 自己的桶：`assets/`、`themes/` | minidriver 同桶：素材写 `nodes` 体系 + `themes/` |
-| 认证 | setup 向导自建账号；`__Host-` 会话 Cookie；RP = 自己域名 | 账号即 minidriver 账号；SSO Cookie；RP 可统一根域 |
-| 素材 | `LocalAssetStore` → 本域 `/assets/:slug` | `DriverAssetStore` → 图床直链 `f.<根域>/i/:slug` |
-| 对 minidriver 的要求 | **零改动、零存在感** | L0：零改动；L1：两个可选环境变量（§3.2） |
+不再有模式开关。**两个仓库的部署配置指到同一资源，联动即自然产生**：
 
-**关键设计：代码只有一套**。两种模式的差异全部收敛在 ① 绑定指向（同一个还是不同的 D1/R2）② `DEPLOY_MODE` 环境变量 ③ AuthCore 建表幂等。切换部署形态 = 换绑定和变量，重新部署。
+| 配置（miniblog / minidriver 两侧对称） | 相同时的效果 |
+|---|---|
+| GitHub Secrets `D1_DATABASE_ID` | 共账号/会话/凭证 + 素材元数据（nodes 表） |
+| GitHub Secrets `R2_BUCKET_NAME`（构建时注入 wrangler.jsonc） | 共文件存储 |
+| CF Secrets `SESSION_ENC_KEY` / `SETUP_TOKEN` | 需同值（共享 TOTP 密文与初始化语义） |
+| vars `AUTH_RP_ID` + `AUTH_COOKIE_DOMAIN` = `<根域>` | SSO：一处登录两站通用；Passkey 跨应用（依赖 PSL） |
 
-### 3.2 联动模式的"零改动兼容阶梯"（对 minidriver 尽量不动）
+- 会话 Cookie：设 `AUTH_COOKIE_DOMAIN` → `__Secure-md-session` + Domain（SSO）；未设 → `__Host-md-session`（各自登录，账号仍共享）
+- **素材统一走 nodes 契约表**（博客素材/YYYY-MM/，R2 `f/<id>`），直链由**博客本域**提供（`/assets/<public_slug>`），不依赖网盘 `/i/` 端点；网盘侧彻底删除文件后链接自然失效
+- **共享契约表**：认证表（1001）+ nodes（1003，最终形态含 public_slug）全部 `IF NOT EXISTS` 且与 minidriver 0001 逐字同构——**任意一方先部署**到同一 D1 都能收敛；driver 的 0001 已幂等化、0003 退役为说明
+- 独立部署（不与 minidriver 重合）时，nodes 即博客自己的表，行为完全一致
 
-| 级别 | minidriver 侧动作 | 获得能力 |
-|---|---|---|
-| **L0 联动·零改动** | **什么都不做** | 共享账号（密码/恢复码/凭证表）；素材进网盘；图床直链。会话与 Passkey 各端独立（在 b. 登录一次，f. 仍需登录） |
-| **L1 联动·增强** | 设置 `AUTH_RP_ID=<根域>` 与 `AUTH_COOKIE_DOMAIN=<根域>`（两个**向后兼容**的可选 env，未设置=现有行为） | + SSO（一处登录两站通用）+ Passkey 跨应用共享（依赖 PSL 验证，§4.5） |
+### 3.2 联动的部署配置清单
 
-> L1 的两个 env 是 minidriver 仅有的改动：`rpID()` 优先读 `AUTH_RP_ID`；会话 Cookie 支持可配名/域。均为**未设置时行为不变**的向后兼容改造，随 minidriver 任意版本发布，不部署 miniblog 就完全不用动。
+见 README「与 Minidriver 联动」表格；`DRIVER_PUBLIC_URL` 已删除（博客不再需要网盘域名）。
 
 ---
 
@@ -121,13 +120,13 @@
   - linked：表已存在（minidriver 所建）→ 迁移空转 → `users` 表非空，直接进登录页
 - 所有认证 SQL 只出现在 AuthCore 模块内（业务代码不直接碰认证表）
 
-### 4.2 模式相关的认证参数
+### 4.2 认证参数（由 SSO 配置决定，无模式开关）
 
-| 参数 | standalone | linked (L0) | linked (L1) |
-|---|---|---|---|
-| Cookie | `__Host-md-session`（host-only） | 同左 | `__Secure-md-session` + `Domain=<根域>`（SSO） |
-| RP ID | 自己域名（`APP_PUBLIC_URL` 主机名） | 同左 | `AUTH_RP_ID`（根域，Passkey 共享） |
-| setup 向导 | 首次部署必须（建账号） | users 非空则跳过 | 同左 |
+| 参数 | 未配 `AUTH_COOKIE_DOMAIN` | 配置 `AUTH_COOKIE_DOMAIN`（+ 可选 `AUTH_RP_ID`） |
+|---|---|---|
+| Cookie | `__Host-md-session`（host-only） | `__Secure-md-session` + `Domain=<根域>`（SSO） |
+| RP ID | `APP_PUBLIC_URL` 主机名 | `AUTH_RP_ID`（根域，Passkey 跨应用） |
+| setup 向导 | 首次部署必须（建账号） | users 非空则跳过（账号随 D1 收敛共享） |
 
 ### 4.3 备用通道
 
@@ -145,7 +144,7 @@ RP ID 必须为当前域名的可注册域后缀——依赖 `qzz.io` 是否在�
 
 ## 5. 数据模型（D1）
 
-迁移纪律：miniblog 迁移 `1001_` 起编；`1001_auth_core.sql`（幂等建认证表）+ `1002_blog_core.sql`（业务表）。**绝不写 minidriver 独有的表（nodes/shares/uploads）。**
+迁移纪律：miniblog 迁移 `1001_` 起编。**共享契约表**：`1001_auth_core.sql`（认证）+ `1003_nodes_contract.sql`（nodes 最终形态，含 public_slug）——全部 IF NOT EXISTS 且与 minidriver 0001 逐字同构，双方向任意顺序部署安全；`1002_blog_core.sql`（业务表）。**不写 minidriver 独有的表（shares/uploads）。**
 
 ```sql
 -- 1001_auth_core.sql（与 minidriver 0001 中的认证表定义逐字一致，此处示意）

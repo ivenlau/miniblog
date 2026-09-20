@@ -11,7 +11,10 @@
     "not_found_handling": "none",
     "run_worker_first": ["/", "/admin/*", "/api/*", "/post/*", "/archive", "/tags", "/tag/*", "/page/*", "/rss.xml", "/sitemap.xml", "/assets/*", "/themes/*"]
   },
-  // ── standalone（默认）：自己的 D1/R2，自带完整认证 ─────────────────
+  // ── 资源指向即联动：与 minidriver 配到同一 D1/R2 即共享账号与素材，否则各自独立 ──
+  // GitHub Secrets：D1_DATABASE_ID / R2_BUCKET_NAME 在部署时注入（scripts/resolve-config.mjs），
+  // 两个仓库配同值即联动；本地开发用下方默认名即可。
+  // 联动时建议 database_name 也改为 "minidriver"（线上以 database_id 为准；本地模拟共享需同名）。
   "r2_buckets": [
     { "binding": "R2", "bucket_name": "miniblog" }
   ],
@@ -24,17 +27,16 @@
     }
   ],
   "vars": {
-    "DEPLOY_MODE": "standalone",
-    "APP_PUBLIC_URL": "https://b.<your-root-domain>",
+    // 博客对外域名（Passkey RP、CSRF Origin、素材直链都取自它）——必须与实际访问域一致
+    "APP_PUBLIC_URL": "https://blog.<your-domain>",
+    // 可选 SSO 联动：与 minidriver 同时设置 <根域> → 两应用共享登录（__Secure- Cookie + Domain），
+    // Passkey 可跨应用（依赖公共后缀清单）。留空 = 各自独立登录（账号仍随 D1 收敛共享）
     "AUTH_RP_ID": "",
     "AUTH_COOKIE_DOMAIN": "",
-    "DRIVER_PUBLIC_URL": "",
     "ALLOWED_ORIGINS": ""
   },
-  // ── linked（联动部署）：切换为与 minidriver 相同的库与桶 ───────────
-  // 1) r2_buckets.bucket_name → "minidriver"
-  // 2) d1_databases.database_name → "minidriver"，database_id → minidriver 的 ID
-  // 3) vars：DEPLOY_MODE=linked，AUTH_RP_ID/AUTH_COOKIE_DOMAIN=<根域>（L1），
-  //    DRIVER_PUBLIC_URL=https://f.<根域>，SESSION_ENC_KEY/SETUP_TOKEN 与 minidriver 同值
+  // Secrets（wrangler secret put / dashboard）：
+  //   SESSION_ENC_KEY — 32 字节 base64；与 minidriver 联动时同值（共享 TOTP 密文语义）
+  //   SETUP_TOKEN     — 首次 /admin/setup 口令；与 minidriver 联动时同值
   "observability": { "enabled": true }
 }

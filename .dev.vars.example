@@ -1,11 +1,11 @@
-# 复制为 .dev.vars（已 gitignore）。本地开发建议 standalone 模式（本地 D1 自建认证）。
-DEPLOY_MODE=standalone
+# 复制为 .dev.vars（已 gitignore）。
+DEPLOY_MODE 已移除：联动由部署配置决定（GitHub Secrets 里 D1_DATABASE_ID / R2_BUCKET_NAME
+与 minidriver 配同值即共享账号与素材；AUTH_COOKIE_DOMAIN 同值再加 SSO）。
 SETUP_TOKEN=dev-setup-token
 # 32 字节随机 base64：
 #   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 SESSION_ENC_KEY=BASE64_OF_32_RANDOM_BYTES
 APP_PUBLIC_URL=http://localhost:8787
-# linked 模式本地调试时取消注释（需与 minidriver 共享同一 D1/R2 绑定）：
+# 可选 SSO 联动（与 minidriver 同值时两应用共享登录）：
 # AUTH_RP_ID=
 # AUTH_COOKIE_DOMAIN=
-# DRIVER_PUBLIC_URL=

@@ -41,13 +41,4 @@ CREATE TABLE blog_settings (
   value TEXT NOT NULL
 );
 
--- 仅 standalone 模式使用（linked 的素材走 minidriver nodes 体系）
-CREATE TABLE IF NOT EXISTS blog_assets (
-  id         TEXT PRIMARY KEY,
-  slug       TEXT NOT NULL UNIQUE,
-  r2_key     TEXT NOT NULL,
-  name       TEXT NOT NULL,
-  mime       TEXT NOT NULL,
-  size       INTEGER NOT NULL,
-  created_at INTEGER NOT NULL
-);
+-- blog_assets 已废弃：素材统一存 nodes 契约表（1003_nodes_contract.sql）

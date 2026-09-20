@@ -12,7 +12,7 @@ import { Logo } from '../components/Logo'
 
 export type AdminShellContext = {
   me: Me
-  deployMode: Bootstrap['deployMode']
+  ssoEnabled: boolean
   signOut: () => Promise<void>
 }
 
@@ -29,7 +29,7 @@ const NAV = [
   { to: '/plugins', icon: Sparkles, key: 'nav.plugins', end: false },
 ] as const
 
-/** 布局路由：鉴权守卫 + 壳。me/deployMode 通过 Outlet context 下发 */
+/** 布局路由：鉴权守卫 + 壳。me/ssoEnabled 通过 Outlet context 下发 */
 export function AdminShell() {
   const location = useLocation()
   const { data, isLoading, isFetching } = useBootstrap()
@@ -37,10 +37,10 @@ export function AdminShell() {
   if (isLoading || (isFetching && !data?.me)) return <Splash />
   if (!data?.initialized) return <Navigate to="/setup" replace />
   if (!data.me) return <Navigate to="/login" state={{ from: location.pathname }} replace />
-  return <ShellInner me={data.me as Me} deployMode={data.deployMode} />
+  return <ShellInner me={data.me as Me} ssoEnabled={data.ssoEnabled} />
 }
 
-function ShellInner({ me, deployMode }: { me: Me; deployMode: Bootstrap['deployMode'] }) {
+function ShellInner({ me, ssoEnabled }: { me: Me; ssoEnabled: boolean }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -112,7 +112,7 @@ function ShellInner({ me, deployMode }: { me: Me; deployMode: Bootstrap['deployM
         </header>
 
         <main className="min-h-0 flex-1 overflow-y-auto pb-20 md:pb-0">
-          <Outlet context={{ me, deployMode, signOut } satisfies AdminShellContext} />
+          <Outlet context={{ me, ssoEnabled, signOut } satisfies AdminShellContext} />
         </main>
 
         {/* 底部导航（移动）：与主菜单一致 */}

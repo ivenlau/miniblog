@@ -4,15 +4,11 @@ export type Env = {
   DB: D1Database
   R2: R2Bucket
   ASSETS: Fetcher
-  /** standalone：独立 D1/R2 + 自建认证；linked：共享 minidriver 资源与账号 */
-  DEPLOY_MODE: 'standalone' | 'linked'
   APP_PUBLIC_URL: string
-  /** 联动 L1：认证 RP ID（如根域）。留空 = APP_PUBLIC_URL 主机名 */
+  /** SSO 联动：认证 RP ID（如根域）。留空 = APP_PUBLIC_URL 主机名 */
   AUTH_RP_ID?: string
-  /** 联动 L1：SSO Cookie 域（父域）。留空 = host-only Cookie */
+  /** SSO 联动：SSO Cookie 域（父域）。设置后会话 Cookie 变 __Secure- + Domain，两应用共享登录 */
   AUTH_COOKIE_DOMAIN?: string
-  /** linked：minidriver 站点（图床直链域名） */
-  DRIVER_PUBLIC_URL?: string
   ALLOWED_ORIGINS?: string
   SESSION_ENC_KEY: string
   SETUP_TOKEN: string

@@ -7,17 +7,17 @@ export const SESSION_TTL_MS = 30 * 24 * 3600 * 1000
 export const SESSION_ABS_MS = 90 * 24 * 3600 * 1000
 
 /**
- * 会话 Cookie 按部署模式区分：
- * - standalone：`__Host-md-session`（host-only）
- * - linked：`__Secure-md-session` + 父域 Domain（SSO，需 minidriver L1 配套）
+ * 会话 Cookie 按 SSO 配置区分（联动由部署配置决定，无模式开关）：
+ * - 未设 AUTH_COOKIE_DOMAIN：`__Host-md-session`（host-only，各应用独立登录）
+ * - 设置 AUTH_COOKIE_DOMAIN：`__Secure-md-session` + 父域 Domain（两应用共享登录）
  */
 export function sessionCookieName(env: Env): string {
-  return env.DEPLOY_MODE === 'linked' ? '__Secure-md-session' : '__Host-md-session'
+  return env.AUTH_COOKIE_DOMAIN ? '__Secure-md-session' : '__Host-md-session'
 }
 
 function sessionCookieOptions(env: Env) {
   const base = { httpOnly: true, secure: true, sameSite: 'Lax' as const, path: '/' }
-  if (env.DEPLOY_MODE === 'linked' && env.AUTH_COOKIE_DOMAIN) {
+  if (env.AUTH_COOKIE_DOMAIN) {
     return { ...base, domain: env.AUTH_COOKIE_DOMAIN }
   }
   return base
@@ -56,12 +56,10 @@ export async function destroyCurrentSession(c: Context<AppEnv>): Promise<void> {
 }
 
 export function clearSessionCookie(c: Context<AppEnv>): void {
-  // 删除时带上 Domain 属性（linked 模式），否则浏览器不会移除父域 Cookie
+  // 删除时带上 Domain 属性（配置了 SSO 域时），否则浏览器不会移除父域 Cookie
   deleteCookie(c, sessionCookieName(c.env), {
     path: '/',
     secure: true,
-    ...(c.env.DEPLOY_MODE === 'linked' && c.env.AUTH_COOKIE_DOMAIN
-      ? { domain: c.env.AUTH_COOKIE_DOMAIN }
-      : {}),
+    ...(c.env.AUTH_COOKIE_DOMAIN ? { domain: c.env.AUTH_COOKIE_DOMAIN } : {}),
   })
 }

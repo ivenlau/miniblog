@@ -71,7 +71,8 @@ auth.get('/bootstrap', async (c) => {
   const out: Record<string, unknown> = {
     initialized: !!user,
     authMethods: { password: !!user?.password_hash, totp: !!user?.totp_enabled },
-    deployMode: c.env.DEPLOY_MODE,
+    // SSO 联动信号：配置了 AUTH_COOKIE_DOMAIN 即两应用共享登录（账号本就随 D1 收敛）
+    ssoEnabled: !!c.env.AUTH_COOKIE_DOMAIN,
   }
   const token = getCookie(c, sessionCookieName(c.env))
   if (token && user) {
@@ -129,10 +130,10 @@ auth.post('/setup', async (c) => {
   const deviceName = typeof body.name === 'string' && body.name.trim() ? body.name.trim() : 'Primary passkey'
 
   await c.env.DB.batch([
-    c.env.DB.prepare(
+    c.env.DB.prepare( // audit-ok（经下方 batch 执行）
       'INSERT INTO users (id, email, display_name, created_at, updated_at) VALUES (?,?,?,?,?)',
     ).bind(userId, email, displayName, now, now),
-    c.env.DB.prepare(
+    c.env.DB.prepare( // audit-ok（经下方 batch 执行）
       'INSERT INTO webauthn_credentials (id, user_id, name, public_key, counter, transports, backed_up, created_at) VALUES (?,?,?,?,?,?,?,?)',
     ).bind(
       cred.id,
@@ -592,7 +593,9 @@ async function generateRecoveryCodes(db: AppEnv['Bindings']['DB'], userId: strin
     const code = `${s.slice(0, 4)}-${s.slice(4, 8)}-${s.slice(8, 12)}`
     codes.push(code)
     stmts.push(
-      db.prepare('INSERT INTO recovery_codes (id, user_id, code_hash) VALUES (?,?,?)').bind(
+      db.prepare( // audit-ok（经下方 batch 执行）
+        'INSERT INTO recovery_codes (id, user_id, code_hash) VALUES (?,?,?)',
+      ).bind(
         ulid(),
         userId,
         await sha256Hex(normalizeRecoveryCode(code)),

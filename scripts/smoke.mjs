@@ -257,7 +257,7 @@ async function main() {
     check('health 200', res.status === 200 && json?.ok === true)
     const boot = await call('GET', '/api/bootstrap')
     check('bootstrap: 未初始化', boot.json?.initialized === false)
-    check('bootstrap: 部署模式', typeof boot.json?.deployMode === 'string')
+    check('bootstrap: ssoEnabled（未配 SSO 域时 false）', boot.json?.ssoEnabled === false)
     const home = await fetch(`${BASE}/`)
     check('SSR 首页 200', home.status === 200 && (await home.text()).includes('Miniblog'))
   }
@@ -290,11 +290,11 @@ async function main() {
     check('当前用户信息', me.json?.displayName === 'Owner' && me.json?.passkeyCount === 1)
   }
 
-  // 会话 Cookie 形态（部署模式语义）
+  // 会话 Cookie 形态（SSO 配置语义）：未配 AUTH_COOKIE_DOMAIN → __Host- host-only
   {
-    const expectedStandalone = jar.names().some((n) => n === '__Host-md-session')
-    const expectedLinked = jar.names().some((n) => n === '__Secure-md-session')
-    check('会话 Cookie 符合部署模式', expectedStandalone !== expectedLinked, jar.names().join(','))
+    const host = jar.names().some((n) => n === '__Host-md-session')
+    const domain = jar.names().some((n) => n === '__Secure-md-session')
+    check('会话 Cookie 符合 SSO 配置', host !== domain, jar.names().join(','))
   }
 
   // 登出 + Passkey 重登录

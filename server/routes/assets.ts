@@ -22,23 +22,25 @@ function parseRange(header: string | null | undefined, size: number): { offset: 
 }
 
 /**
- * standalone 模式的素材直链：GET /assets/:slug
- * 语义与 minidriver 图床一致：无鉴权、public 长缓存、CORS 全开、ETag/304。
+ * 素材直链：GET /assets/:slug
+ * 查 nodes 契约表的 public_slug（与网盘 /i/:slug 同一份数据）；语义一致：
+ * 无鉴权、public 长缓存、CORS 全开、ETag/304，支持 Range。
+ * 网盘侧软删除（回收站）仍可访问，彻底删除后自然 404。
  */
 export const assetsLink = new Hono<AppEnv>()
 
 assetsLink.get('/assets/:slug', async (c) => {
-  const row = await c.env.DB.prepare('SELECT r2_key, mime, size, name FROM blog_assets WHERE slug = ?')
+  const row = await c.env.DB.prepare('SELECT r2_key, mime, size, name FROM nodes WHERE public_slug = ?')
     .bind(c.req.param('slug'))
-    .first<{ r2_key: string; mime: string; size: number; name: string }>()
-  if (!row) throw Errors.notFound()
+    .first<{ r2_key: string; mime: string | null; size: number; name: string }>()
+  if (!row || !row.r2_key) throw Errors.notFound()
 
   const range = parseRange(c.req.header('range'), row.size)
   const obj = await c.env.R2.get(row.r2_key, range ? { range } : undefined)
   if (!obj) throw Errors.notFound()
 
   const headers: Record<string, string> = {
-    'Content-Type': row.mime,
+    'Content-Type': row.mime || 'application/octet-stream',
     'Cache-Control': 'public, max-age=86400',
     'Access-Control-Allow-Origin': '*',
     ETag: obj.httpEtag,

@@ -29,7 +29,8 @@ export type Me = {
 export type Bootstrap = {
   initialized: boolean
   authMethods: { password: boolean; totp: boolean }
-  deployMode: 'standalone' | 'linked'
+  /** 配置了 AUTH_COOKIE_DOMAIN（两应用共享登录）时为 true——安全设置页据此显示联动提示 */
+  ssoEnabled: boolean
   me?: { userId: string; email: string; displayName: string } & Partial<Me>
 }
 

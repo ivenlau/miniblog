@@ -14,10 +14,13 @@ export type Env = {
   ALLOWED_ORIGINS?: string
   SESSION_ENC_KEY: string
   SETUP_TOKEN: string
-  /** SSO 联动：认证 RP ID（如根域）。设置后 Passkey 可跨子域应用共享；未设置 = 各自主机名 */
-  AUTH_RP_ID?: string
-  /** SSO 联动：会话 Cookie 域（父域）。设置后会话在根域子域间通用；未设置 = host-only */
-  AUTH_COOKIE_DOMAIN?: string
+  /**
+   * 跨子域共享认证（SSO）：设为 "true" 时，Passkey RP 与会话 Cookie 自动统一到
+   * APP_PUBLIC_URL（或请求域）的根域——两应用（与 minidriver）都开启且同根域即互通。
+   * 常规根域自动推导（含 com.cn/co.uk 等常见多级后缀）；PSL 托管域（如 github.io）
+   * 浏览器本身不允许跨子域，请保持关闭。
+   */
+  BASE_DOMAIN_AUTH?: string
 }
 
 export type Vars = { userId: string }
@@ -42,7 +45,31 @@ export function allowedOrigins(env: Env, requestUrl?: string): string[] {
   return list.length > 0 ? list : [publicOrigin(env, requestUrl ?? '')]
 }
 
-/** WebAuthn RP ID：AUTH_RP_ID 优先（联动部署统一根域），否则完整主机名 */
+/** 常见多级公共后缀（个人场景够用；完整 PSL 不内置） */
+const MULTI_LABEL_SUFFIXES = new Set([
+  'com.cn', 'net.cn', 'org.cn', 'gov.cn', 'ac.cn',
+  'co.uk', 'org.uk', 'com.au', 'co.jp', 'com.hk', 'com.tw', 'com.sg',
+])
+
+/** 主机名的可注册根域（eTLD+1；仅支持常见后缀，PSL 托管域不适用） */
+export function rootDomain(host: string): string {
+  const labels = host.split('.').filter(Boolean)
+  const last2 = labels.slice(-2).join('.')
+  if (MULTI_LABEL_SUFFIXES.has(labels.slice(-2).join('.'))) return labels.slice(-3).join('.')
+  return last2
+}
+
+/**
+ * 跨子域共享认证开启时的根域（BASE_DOMAIN_AUTH="true"）；未开启返回 undefined。
+ * 根域从规范来源（APP_PUBLIC_URL 或请求域）推导，无需手填。
+ */
+export function sharedAuthDomain(env: Env, requestUrl: string): string | undefined {
+  if (env.BASE_DOMAIN_AUTH !== 'true') return undefined
+  return rootDomain(new URL(publicOrigin(env, requestUrl)).hostname)
+}
+
+/** WebAuthn RP ID：跨子域共享认证开启时统一根域，否则完整主机名 */
 export function rpID(env: Env, requestUrl?: string): string {
-  return env.AUTH_RP_ID?.trim() || new URL(publicOrigin(env, requestUrl ?? 'http://localhost')).hostname
+  const origin = publicOrigin(env, requestUrl ?? 'http://localhost')
+  return sharedAuthDomain(env, origin) ?? new URL(origin).hostname
 }

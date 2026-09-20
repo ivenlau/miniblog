@@ -46,7 +46,7 @@ npm run smoke
    - `SESSION_ENC_KEY`：32 字节 base64（生成命令见 `.dev.vars.example`）
    - `SETUP_TOKEN`：自拟初始化口令
    - `APP_PUBLIC_URL`：规范域名（如 `https://blog.example.com`）——**绑自定义域后必填**（RP/CSRF/直链的权威来源）；单域名可不填（自动取访问域）
-   - `AUTH_RP_ID` / `AUTH_COOKIE_DOMAIN`：可选 SSO 联动（见下表）
+   - `BASE_DOMAIN_AUTH`：`true` 时开启跨子域共享认证（SSO + Passkey 互通，见下表）
 5. 首访 `/admin/setup` 初始化
 
 ### 与 Minidriver 联动（可选，配置收敛）
@@ -58,7 +58,7 @@ npm run smoke
 | GitHub Secrets `D1_DATABASE_ID` | 共账号/会话/凭证 + 素材元数据（nodes 表，双方向迁移幂等，任意顺序部署） |
 | GitHub Secrets `R2_BUCKET_NAME` | 共文件存储 |
 | CF Secrets `SESSION_ENC_KEY` / `SETUP_TOKEN` | 需同值（共享 TOTP 密文与初始化语义） |
-| CF Secrets/变量 `AUTH_RP_ID` + `AUTH_COOKIE_DOMAIN` = `<根域>`（dashboard 设置） | 再加 SSO：一处登录两站通用，Passkey 跨应用（依赖 PSL） |
+| 变量 `BASE_DOMAIN_AUTH` = `true`（两侧 dashboard 设置） | 再加 SSO：一处登录两站通用，Passkey 跨应用。根域从 APP_PUBLIC_URL 自动推导（支持 com.cn/co.uk 等常见多级后缀；PSL 托管域不适用） |
 
 不配以上重合 → 两应用完全独立。联动时素材在网盘「博客素材/」目录可见可管理；直链始终走博客本域，网盘侧彻底删除文件后链接自然失效。
 
@@ -95,7 +95,7 @@ npm run smoke
 - 主题三态 `mb.theme`（light/dark/system）+ 语言 `mb.lang`（zh-CN/en），localStorage 持久化，`admin/public/theme.js` 首帧防闪白
 - 组件库 `admin/src/components/ui.tsx`（Button/Modal/Dropdown/EmptyState…），CSS 变量 `--mb-*` + Tailwind `@theme inline`
 - 路由为 data router（`createBrowserRouter`，basename `/admin`）——编辑器脏守卫 `useBlocker` 依赖它
-- **安全设置共享语义**：users/sessions/webauthn_credentials/recovery_codes 随 D1 收敛共享，密码/TOTP/恢复码/会话吊销**即刻对两个应用生效**（设置 → 安全页顶部在配置 `AUTH_COOKIE_DOMAIN` 后显示联动提示条）；Passkey 跨应用需两侧统一 `AUTH_RP_ID` 为根域（依赖 PSL）
+- **安全设置共享语义**：users/sessions/webauthn_credentials/recovery_codes 随 D1 收敛共享，密码/TOTP/恢复码/会话吊销**即刻对两个应用生效**（设置 → 安全页顶部在开启 `BASE_DOMAIN_AUTH` 后显示联动提示条）；Passkey 跨应用需两侧都开启且同根域（依赖 PSL）
 
 ## 安全与边界
 

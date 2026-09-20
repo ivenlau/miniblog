@@ -9,7 +9,7 @@ import {
 } from '@simplewebauthn/server'
 import type { RegistrationResponseJSON, AuthenticationResponseJSON } from '@simplewebauthn/server'
 import type { AppEnv } from '../lib/env'
-import { rpID, allowedOrigins } from '../lib/env'
+import { rpID, allowedOrigins, sharedAuthDomain } from '../lib/env'
 import { Errors } from '../lib/errors'
 import { ulid, randomToken, sha256Hex, timingSafeEqualHex } from '../lib/ids'
 import {
@@ -71,10 +71,10 @@ auth.get('/bootstrap', async (c) => {
   const out: Record<string, unknown> = {
     initialized: !!user,
     authMethods: { password: !!user?.password_hash, totp: !!user?.totp_enabled },
-    // SSO 联动信号：配置了 AUTH_COOKIE_DOMAIN 即两应用共享登录（账号本就随 D1 收敛）
-    ssoEnabled: !!c.env.AUTH_COOKIE_DOMAIN,
+    // 跨子域共享认证（BASE_DOMAIN_AUTH）：SSO + Passkey 统一根域
+    ssoEnabled: !!sharedAuthDomain(c.env, c.req.url),
   }
-  const token = getCookie(c, sessionCookieName(c.env))
+  const token = getCookie(c, sessionCookieName(c.env, c.req.url))
   if (token && user) {
     const sessionId = await sha256Hex(token)
     const session = await c.env.DB.prepare('SELECT user_id, expires_at FROM sessions WHERE id = ?')
@@ -330,7 +330,7 @@ auth.get('/auth/me', requireAuth, async (c) => {
 })
 
 auth.get('/auth/sessions', requireAuth, async (c) => {
-  const token = getCookie(c, sessionCookieName(c.env))
+  const token = getCookie(c, sessionCookieName(c.env, c.req.url))
   const currentId = token ? await sha256Hex(token) : ''
   const { results } = await c.env.DB.prepare(
     'SELECT id, created_at, last_seen_at, expires_at, user_agent, ip_country FROM sessions WHERE user_id = ? ORDER BY last_seen_at DESC',
@@ -361,7 +361,7 @@ auth.delete('/auth/sessions/:id', requireAuth, async (c) => {
 })
 
 auth.post('/auth/sessions/revoke-others', requireAuth, async (c) => {
-  const token = getCookie(c, sessionCookieName(c.env))
+  const token = getCookie(c, sessionCookieName(c.env, c.req.url))
   const currentId = token ? await sha256Hex(token) : ''
   await c.env.DB.prepare('DELETE FROM sessions WHERE user_id = ? AND id != ?')
     .bind(c.get('userId'), currentId)

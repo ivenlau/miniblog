@@ -395,6 +395,10 @@ async function main() {
     const post = await call('POST', '/api/posts', {
       body: { title: '标签测试文', contentMd: '内容', tags: ['旅行'], summary: '', coverUrl: 'https://example.com/cover.png' },
     })
+    const searchPost = await call('POST', '/api/posts', {
+      body: { title: '雪域随笔', contentMd: '远望布达拉宫广场，日光洒满拉萨。' },
+    })
+    await call('POST', `/api/posts/${searchPost.json?.id}/publish`)
     const pub = await call('POST', `/api/posts/${post.json?.id}/publish`)
     check('发布带标签文章', pub.res.status === 200)
     const heroHtml = await (await fetch(`${BASE}/post/标签测试文`)).text()
@@ -443,6 +447,41 @@ async function main() {
     check('公开站页头导航', navHome.status === 200 && navHtml.includes('site-nav') && navHtml.includes('/archive') && navHtml.includes('/page/about'))
     const backHtml = await (await fetch(`${BASE}/post/标签测试文`)).text()
     check('无返回链接（改为回顶部按钮）', !backHtml.includes('class="back"') && backHtml.includes('id="mb-top"') && backHtml.includes('rel="icon"'))
+
+    // 分页：再造 10 篇凑满两页（PAGE_SIZE=10）
+    for (let i = 1; i <= 10; i++) {
+      const pp = await call('POST', '/api/posts', { body: { title: `分页测试文 ${i}`, contentMd: `分页内容 ${i}`, summary: '' } })
+      await call('POST', `/api/posts/${pp.json?.id}/publish`)
+    }
+    const p1 = await (await fetch(`${BASE}/?page=1`)).text()
+    const p2res = await fetch(`${BASE}/?page=2`)
+    const p2 = await p2res.text()
+    check(
+      '首页分页（链接 + 第 2 页内容）',
+      p1.includes('下一页') && p1.includes('/?page=2') && p2res.status === 200 && p2.includes('标签测试文'),
+    )
+    const frag = await (await fetch(`${BASE}/?page=2&fragment=1`)).text()
+    check(
+      '分页片段（无限滚动追加源）',
+      frag.includes('id="mb-cards"') && frag.includes('id="mb-sentinel"') && frag.includes('标签测试文'),
+    )
+    // 删除第 1 页文章后分页缓存同步清除
+    const listAll = await call('GET', '/api/posts')
+    const victim = (listAll.json?.items ?? []).find((x) => x.title === '分页测试文 9')
+    await call('DELETE', `/api/posts/${victim?.id}`)
+    check('分页页缓存随删除清除', !(await (await fetch(`${BASE}/?page=1`)).text()).includes('分页测试文 9'))
+
+    // 搜索：LIKE 标题 + 正文，含转义
+    const srch = await fetch(`${BASE}/search?q=${encodeURIComponent('布达拉宫')}`)
+    const srchText = await srch.text()
+    check(
+      '搜索页（标题/正文命中 + 计数）',
+      srch.status === 200 && srchText.includes('雪域随笔') && srchText.includes('共 1 条结果'),
+    )
+    const srchEsc = await fetch(`${BASE}/search?q=${encodeURIComponent('%')}`)
+    check('搜索通配符转义不报错', srchEsc.status === 200)
+    const searchForm = await (await fetch(`${BASE}/`)).text()
+    check('页头搜索框', searchForm.includes('form class="site-search"') && searchForm.includes('action="/search"'))
   }
 
   // 主题系统：切换主题 + tokens 即时生效
@@ -478,6 +517,7 @@ async function main() {
         plugins: [
           { id: 'reading-time', enabled: true },
           { id: 'toc', enabled: true },
+          { id: 'favorites', enabled: true },
           { id: 'highlight', enabled: true, config: { theme: 'github' } },
           { id: 'lightbox', enabled: true },
           { id: 'katex', enabled: true },
@@ -501,13 +541,22 @@ async function main() {
       '目录仅一份（浮动组件）',
       (tocHtml.match(/id="mb-toc"/g) ?? []).length === 1 && tocHtml.includes('mb-toc-btn') && !tocHtml.includes('class="toc"'),
     )
+    // 收藏插件：文章页带「收藏本文」（data-slug），首页（scope=all）带面板
+    const favPost = await (await fetch(`${BASE}/post/目录测试文`)).text()
+    check('收藏插件（文章页收藏本页）', favPost.includes('id="mb-fav-add"') && favPost.includes('data-slug='))
+    const favHome = await (await fetch(`${BASE}/`)).text()
+    check('收藏插件（首页面板入口）', favHome.includes('id="mb-fav-btn"') && !favHome.includes('id="mb-fav-add"'))
 
     // 全部关闭后，插件输出（含缓存中的旧 HTML）必须从文章页消失
     await call('PUT', '/api/settings', { body: { plugins: [] } })
     const off = await (await fetch(`${BASE}/post/目录测试文`)).text()
     check(
       '关闭插件即时生效（文章页缓存已清）',
-      !off.includes('mb-toc-panel') && !off.includes('>· 约') && !off.includes('分钟阅读') && !off.includes('mb-lightbox'),
+      !off.includes('mb-toc-panel') &&
+        !off.includes('>· 约') &&
+        !off.includes('分钟阅读') &&
+        !off.includes('mb-lightbox') &&
+        !off.includes('mb-fav-btn'),
     )
   }
 
@@ -533,7 +582,7 @@ async function main() {
 
     const home = await fetch(`${BASE}/`)
     const homeHtml = await home.text()
-    check('首页 Liquid 渲染', home.status === 200 && homeHtml.includes('— CUSTOM') && homeHtml.includes('标签测试文'))
+    check('首页 Liquid 渲染', home.status === 200 && homeHtml.includes('— CUSTOM') && homeHtml.includes('分页测试文'))
 
     const postPage = await fetch(`${BASE}/post/标签测试文`)
     check('文章页 Liquid 渲染', postPage.status === 200 && (await postPage.text()).includes('POST:标签测试文'))

@@ -57,6 +57,7 @@ const DEFS = [
   { id: 'katex', nameKey: 'plugins.items.katex.name', descKey: 'plugins.items.katex.desc', config: ['cdn'] },
   { id: 'giscus', nameKey: 'plugins.items.giscus.name', descKey: 'plugins.items.giscus.desc', config: ['repo', 'repoId', 'category', 'categoryId'] },
   { id: 'footer-links', nameKey: 'plugins.items.footer-links.name', descKey: 'plugins.items.footer-links.desc', config: ['links'] },
+  { id: 'favorites', nameKey: 'plugins.items.favorites.name', descKey: 'plugins.items.favorites.desc', config: [] as string[] },
 ] as const
 
 /** 插件：声明式启停 + 配置（写 blog_settings.plugins，公开站即时生效） */

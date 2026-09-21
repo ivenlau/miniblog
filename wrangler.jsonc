@@ -9,7 +9,7 @@
     "directory": "./public",
     "binding": "ASSETS",
     "not_found_handling": "none",
-    "run_worker_first": ["/", "/admin/*", "/api/*", "/post/*", "/archive", "/tags", "/tag/*", "/page/*", "/rss.xml", "/sitemap.xml", "/assets/*", "/themes/*"]
+    "run_worker_first": ["/", "/admin/*", "/api/*", "/post/*", "/archive", "/tags", "/search", "/tag/*", "/page/*", "/rss.xml", "/sitemap.xml", "/assets/*", "/themes/*"]
   },
   // ── 资源指向即联动：与 minidriver 配到同一 D1/R2 即共享账号与素材，否则各自独立 ──
   // GitHub Secrets：D1_DATABASE_ID / R2_BUCKET_NAME 在部署时注入（scripts/resolve-config.mjs），

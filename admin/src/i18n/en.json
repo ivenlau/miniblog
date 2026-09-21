@@ -296,6 +296,10 @@
       "footer-links": {
         "name": "Footer links",
         "desc": "Custom footer links, format: Label|URL separated by semicolons"
+      },
+      "favorites": {
+        "name": "My favorites",
+        "desc": "Visitor-side bookmarks via localStorage: one-click collect on posts, floating panel to browse (stored per browser)"
       }
     },
     "themeCustom": "Custom…",

@@ -12,6 +12,8 @@ export type ThemeContext = {
   tokens: ThemeTokens
   /** 当前路径（用于导航高亮） */
   path?: string
+  /** 搜索页回填的关键词 */
+  searchQ?: string
   /** 插件挂载点：head 额外资源（script/link） */
   headHtml?: string
   /** 插件挂载点：页脚附加内容 */
@@ -65,6 +67,10 @@ nav.site-nav::-webkit-scrollbar{display:none}
 nav.site-nav a{font-size:.9rem;color:#666;white-space:nowrap;padding:.15rem 0}
 nav.site-nav a:hover,nav.site-nav a.active{color:var(--mb-accent)}
 nav.site-nav a.active{font-weight:600}
+form.site-search{margin-left:auto;display:flex;align-self:center}
+form.site-search input{width:8.5rem;padding:.3rem .75rem;border:1px solid #dcdfe4;border-radius:999px;background:#fffffff2;font-size:.85rem;color:inherit;outline:none;transition:border-color .15s ease,width .2s ease}
+form.site-search input:focus{border-color:var(--mb-accent);width:11rem}
+form.site-search input::placeholder{color:#9aa1ab}
 main{max-width:var(--mb-width);margin:0 auto;padding:2.5rem 1.25rem 4rem;font-size:${t.fontSize}px}
 #mb-top{position:fixed;right:1.25rem;bottom:1.25rem;z-index:50;width:2.6rem;height:2.6rem;display:flex;align-items:center;justify-content:center;
   border:none;border-radius:50%;background:var(--mb-accent);color:#fff;cursor:pointer;box-shadow:0 4px 16px rgb(0 0 0/.22);
@@ -76,11 +82,16 @@ footer.site{max-width:var(--mb-width);margin:2rem auto 0;padding:1.25rem;color:#
 @media (max-width:640px){
   header.site .desc{display:none}
   nav.site-nav{margin-left:0;width:100%;order:3;padding-bottom:.25rem}
+  form.site-search{margin-left:0;width:100%;order:4;padding-bottom:.25rem}
+  form.site-search input{width:100%}
   main{padding:1.5rem 1rem 3rem}
   article h1{font-size:1.5rem}
   .page-title{font-size:1.25rem}
 }
 .post{margin-bottom:2.75rem}.post h2{margin:0 0 .3rem;font-size:1.3rem}
+.mb-pager{display:flex;justify-content:space-between;gap:1rem;margin-top:2.75rem}
+.mb-pager a{color:var(--mb-accent);text-decoration:none;border:1px solid #e8e8ec;border-radius:999px;padding:.45rem 1rem;font-size:.9rem}
+.mb-pager a:hover{border-color:var(--mb-accent)}
 .meta{color:#888;font-size:.85rem}
 .page-title{font-size:1.5rem;margin:0 0 1.5rem}
 article h1{font-size:1.85rem;margin:.2rem 0 1rem}
@@ -90,6 +101,7 @@ img.post-hero{display:block;width:100%;border-radius:var(--mb-radius);margin:.3r
 .post-cover-link img{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:calc(var(--mb-radius) - 4px)}
 article a{color:var(--mb-accent);text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px}
 article a:hover{opacity:.75}
+body.theme-gallery form.site-search input{background:#181d22;border-color:#2a313a;color:#e8ebee}
 article pre{overflow-x:auto;padding:1rem;background:#1d212b;color:#e7e9ee;border-radius:var(--mb-radius);font-size:.9rem}
 article code{background:#ececf1;padding:.1em .35em;border-radius:6px;font-size:.92em}
 article pre code{background:none;padding:0}
@@ -131,6 +143,9 @@ async function shell(ctx: ThemeContext, extraCss: string, bodyCls: string, body:
                 ))}
               </nav>
             )}
+            <form class="site-search" action="/search" method="get" role="search">
+              <input type="search" name="q" placeholder="搜索文章…" aria-label="搜索文章" maxLength={64} value={ctx.searchQ} />
+            </form>
           </div>
         </header>
         <main>{body}</main>

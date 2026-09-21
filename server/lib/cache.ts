@@ -26,6 +26,8 @@ export async function purgeBlogCache(
   requestUrl: string,
 ): Promise<void> {
   const paths = ['/', '/archive', '/tags', '/rss.xml', '/sitemap.xml']
+  // 首页分页键（/?page=N，与无限滚动片段共用清除；个人规模 50 页封顶）
+  for (let n = 2; n <= 50; n++) paths.push(`/?page=${n}`)
   if (opts.slug) paths.push(`/post/${opts.slug}`)
   for (const t of opts.tagSlugs ?? []) paths.push(`/tag/${t}`)
   if (opts.pageSlug) paths.push(`/page/${opts.pageSlug}`)

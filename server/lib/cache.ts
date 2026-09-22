@@ -35,5 +35,6 @@ export async function purgeBlogCache(
     slug: string
   }>()
   for (const r of results ?? []) paths.push(`/post/${r.slug}`)
-  await Promise.all(paths.map((p) => caches.default.delete(key(env, p, requestUrl))))
+  // 缓存清除失败不阻断保存/发布（残留缓存只是暂时陈旧）；逐项兜底
+  await Promise.all(paths.map((p) => caches.default.delete(key(env, p, requestUrl)).catch(() => {})))
 }

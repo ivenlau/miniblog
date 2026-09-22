@@ -98,12 +98,28 @@ footer.site{max-width:var(--mb-width);margin:2rem auto 0;padding:1.25rem;color:#
 .page-title{font-size:1.5rem;margin:0 0 1.5rem}
 article h1{font-size:1.85rem;margin:.2rem 0 1rem}
 article img{max-width:100%;border-radius:var(--mb-radius)}
+article table{display:block;width:100%;overflow-x:auto;border-collapse:collapse;font-size:.92em;margin:1.25rem 0}
+article th,article td{border:1px solid #e3e6ea;padding:.45rem .75rem;text-align:left;vertical-align:top}
+article th{background:#f4f5f8;font-weight:600;white-space:nowrap}
+article tbody tr:nth-child(2n) td{background:#fafbfd}
+article hr{border:none;border-top:1px solid #e5e7ec;margin:2rem auto}
+article li.mb-task{list-style:none}
+article li.mb-task input[type=checkbox]{accent-color:var(--mb-accent);margin-right:.35rem}
+article .footnotes-list{font-size:.85em;padding-left:1.2rem;color:#555}
+article .footnote-ref a,article .footnote-backref{text-decoration:none}
+article .footnote-ref a{color:var(--mb-accent)}
 img.post-hero{display:block;width:100%;border-radius:var(--mb-radius);margin:.3rem 0 1.1rem}
 .post-cover-link{display:block;margin-bottom:.6rem}
 .post-cover-link img{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:calc(var(--mb-radius) - 4px)}
 article a{color:var(--mb-accent);text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px}
 article a:hover{opacity:.75}
 body.theme-gallery form.site-search input{background:#181d22;border-color:#2a313a;color:#e8ebee}
+body.theme-gallery article th,body.theme-gallery article td{border-color:#2a313a;text-align:left}
+body.theme-gallery article th{background:#181d22}
+body.theme-gallery article tbody tr:nth-child(2n) td{background:#1b2026}
+body.theme-gallery article hr{border-top-color:#2a313a}
+body.theme-gallery article li.mb-task input[type=checkbox]{accent-color:var(--mb-accent)}
+body.theme-gallery article .footnotes-list{color:#9aa3ad}
 article pre{overflow-x:auto;padding:1rem;background:#1d212b;color:#e7e9ee;border-radius:var(--mb-radius);font-size:.9rem}
 article code{background:#ececf1;padding:.1em .35em;border-radius:6px;font-size:.92em}
 article pre code{background:none;padding:0}

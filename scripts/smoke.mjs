@@ -446,6 +446,14 @@ async function main() {
       '预览接口（服务端同管线）',
       preview.res.status === 200 && (preview.json?.html ?? '').includes('<h1') && (preview.json?.toc?.length ?? 0) >= 1,
     )
+    // Markdown 增强：表格 / 任务列表 / 脚注
+    const mdSrc = ['| A | B |', '| - | - |', '| 1 | 2 |', '', '- [ ] 待办', '- [x] 完成', '', '脚注[^1]', '', '[^1]: 注'].join('\n')
+    const mdPrev = await call('POST', '/api/preview', { body: { contentMd: mdSrc } })
+    const mdHtml = mdPrev.json?.html ?? ''
+    check(
+      'Markdown 增强（表格/任务列表/脚注）',
+      mdHtml.includes('<table>') && mdHtml.includes('class="mb-task"') && mdHtml.includes('footnote-ref'),
+    )
 
     // 公开站导航：默认导航（首页/归档/标签/关于）渲染进页头
     const navHome = await fetch(`${BASE}/`)

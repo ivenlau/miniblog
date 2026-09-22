@@ -1,8 +1,10 @@
 import MarkdownIt from 'markdown-it'
+import footnote from 'markdown-it-footnote'
 
 /**
  * Markdown 渲染管线（服务端）：
  * - html: true —— 单作者可信内容，允许内嵌 HTML（与静态站点生成器语义一致）
+ * - GFM 表格 / 删除线 / 自动链接开箱即用；任务列表与脚注见下方增强
  * - 标题自动 slug + TOC 提取；阅读时长估算
  */
 
@@ -14,6 +16,9 @@ const md = new MarkdownIt({
   linkify: true,
   typographer: true,
 })
+
+// 脚注：[^1] 引用 + [^1]: 定义 → 文末注释列表
+md.use(footnote)
 
 // 外链默认新窗口
 const defaultLinkOpen =
@@ -72,7 +77,14 @@ export function renderMarkdown(source: string): RenderedPost {
   const toc: TocItem[] = []
   activeToc = toc
   activeUsed = new Map()
-  const html = md.render(source)
+  // GFM 任务列表：`- [ ] 待办` / `- [x] 完成` → 只读勾选框（markdown-it 核心不含此语法）
+  const html = md
+    .render(source)
+    .replace(
+      /(<li[^>]*>)(<p>)?\[([ xX])\] /g,
+      (_, li: string, p: string | undefined, mark: string) =>
+        `${li}${p ?? ''}<input type="checkbox" class="mb-task" disabled${mark.toLowerCase() === 'x' ? ' checked' : ''}> `,
+    )
   activeToc = null
   activeUsed = null
 

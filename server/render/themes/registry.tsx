@@ -50,7 +50,7 @@ export function SiteIcon({ size = 22 }: { size?: number }) {
 
 /** 「回顶部」浮动按钮（长页面滚动后出现；零依赖内联脚本） */
 const BACK_TO_TOP_JS =
-  '(function(){var b=document.getElementById("mb-top");if(!b)return;var f=function(){b.classList.toggle("on",window.scrollY>320)};window.addEventListener("scroll",f,{passive:true});f();b.addEventListener("click",function(){window.scrollTo({top:0,behavior:"smooth"})})})()'
+  '(function(){var b=document.getElementById("mb-top");if(!b)return;if(document.getElementById("mb-fav-btn"))b.classList.add("has-fav");var f=function(){b.classList.toggle("on",window.scrollY>320)};window.addEventListener("scroll",f,{passive:true});f();b.addEventListener("click",function(){window.scrollTo({top:0,behavior:"smooth"})})})()'
 
 const BASE_CSS = (t: ThemeTokens, extra: string) => `
 :root{--mb-accent:${t.accent};--mb-radius:${t.radius}px;--mb-width:${t.width}rem}
@@ -77,6 +77,8 @@ main{max-width:var(--mb-width);margin:0 auto;padding:2.5rem 1.25rem 4rem;font-si
   opacity:0;pointer-events:none;transform:translateY(6px);transition:opacity .2s ease,transform .2s ease}
 #mb-top.on{opacity:1;pointer-events:auto;transform:none}
 #mb-top:hover{filter:brightness(1.08)}
+/* 收藏插件占用右下角主位时，「回顶部」自动上移一层 */
+#mb-top.has-fav{bottom:4.4rem}
 h1,h2,h3{line-height:1.35}
 footer.site{max-width:var(--mb-width);margin:2rem auto 0;padding:1.25rem;color:#888;font-size:.85rem;border-top:1px solid #e8e8ec}
 @media (max-width:640px){

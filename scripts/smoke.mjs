@@ -29,7 +29,13 @@ function readDevVars() {
       readFileSync('.dev.vars', 'utf8')
         .split('\n')
         .filter((l) => l.includes('=') && !l.trim().startsWith('#'))
-        .map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]),
+        .map((l) => {
+          const key = l.slice(0, l.indexOf('=')).trim()
+          // 值只可能是纯注释（如 `KEY=  # 说明`）时视为空——新语义下留空 = 自动取访问域
+          let value = l.slice(l.indexOf('=') + 1).trim()
+          if (value.startsWith('#')) value = ''
+          return [key, value]
+        }),
     )
   } catch {
     return {}
@@ -556,7 +562,7 @@ async function main() {
         !off.includes('>· 约') &&
         !off.includes('分钟阅读') &&
         !off.includes('mb-lightbox') &&
-        !off.includes('mb-fav-btn'),
+        !off.includes('id="mb-fav-btn"') && !off.includes('mb-fav-panel'),
     )
   }
 

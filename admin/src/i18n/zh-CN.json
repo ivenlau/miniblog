@@ -245,13 +245,11 @@
       "radiusLarge": "大",
       "radiusFull": "全圆",
       "widthLabel": "版心宽度",
-      "widthNarrow": "窄",
-      "widthMedium": "适中",
-      "widthWide": "宽",
       "fontSizeLabel": "正文字号",
-      "fontSizeSmall": "小",
-      "fontSizeStandard": "标准",
-      "fontSizeLarge": "大",
+      "fontKai": "楷体",
+      "fontFangsong": "仿宋",
+      "fontRound": "圆体",
+      "fontMono": "等宽",
       "openSite": "打开站点查看效果"
     },
     "appearance": {

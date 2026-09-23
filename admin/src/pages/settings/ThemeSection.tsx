@@ -3,22 +3,45 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ExternalLink, RotateCcw, Save } from 'lucide-react'
 import { ApiError, api } from '../../lib/api'
-import type { ThemeSettings } from '../../lib/types'
+import type { FontId, ThemeSettings } from '../../lib/types'
 import { Button, Spinner, cn } from '../../components/ui'
 import { useToast } from '../../state/toast'
 
 const errCode = (err: unknown) => (err instanceof ApiError ? err.code : 'UNKNOWN')
 
 const THEME_CARDS = [
-  { id: 'magazine', nameKey: 'settings.theme.magazine', descKey: 'settings.theme.magazineDesc', accent: '#5b5bd6', radius: 12, width: 46, font: 'sans' as const, dark: false },
-  { id: 'classic', nameKey: 'settings.theme.classic', descKey: 'settings.theme.classicDesc', accent: '#8a6d3b', radius: 6, width: 42, font: 'serif' as const, dark: false },
-  { id: 'gallery', nameKey: 'settings.theme.gallery', descKey: 'settings.theme.galleryDesc', accent: '#0e7490', radius: 16, width: 60, font: 'sans' as const, dark: true },
+  { id: 'magazine', nameKey: 'settings.theme.magazine', descKey: 'settings.theme.magazineDesc', accent: '#5b5bd6', radius: 12, width: 46, font: 'sans' as const, fontSize: 16, dark: false },
+  { id: 'classic', nameKey: 'settings.theme.classic', descKey: 'settings.theme.classicDesc', accent: '#8a6d3b', radius: 6, width: 42, font: 'serif' as const, fontSize: 17, dark: false },
+  { id: 'gallery', nameKey: 'settings.theme.gallery', descKey: 'settings.theme.galleryDesc', accent: '#0e7490', radius: 16, width: 60, font: 'sans' as const, fontSize: 16, dark: true },
 ] as const
 
 const ACCENT_PRESETS = ['#5b5bd6', '#0e7490', '#8a6d3b', '#dc2626', '#059669', '#d97706', '#db2777', '#475569']
 const RADIUS_STEPS = [0, 6, 12, 16, 24]
-const WIDTH_STEPS = [38, 46, 60]
-const FONTSIZE_STEPS = [15, 16, 17]
+/* 版心宽度 / 正文字号滑块量程 */
+const WIDTH_MIN = 36
+const WIDTH_MAX = 120
+const FONTSIZE_MIN = 14
+const FONTSIZE_MAX = 20
+const FONTSIZE_STEP = 0.5
+
+/* 与 server/render/themes/registry.tsx 的 FONT_STACKS 逐字保持一致 */
+const FONT_STACKS: Record<FontId, string> = {
+  sans: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', 'Noto Sans CJK SC', 'Microsoft YaHei', 'WenQuanYi Micro Hei', sans-serif",
+  serif: "'Songti SC', 'STSong', 'SimSun', Georgia, 'Noto Serif SC', 'Noto Serif CJK SC', serif",
+  kai: "'Kaiti SC', 'STKaiti', 'KaiTi', 'BiauKai', 'AR PL UKai CN', 'AR PL UKai TW', 'Noto Serif CJK SC', serif",
+  fangsong: "'Fangsong SC', 'STFangsong', 'FangSong', 'FangSong_GB2312', 'Noto Serif CJK SC', serif",
+  round: "'Yuanti SC', 'Yuanti TC', 'Hiragino Maru Gothic ProN', 'YouYuan', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', sans-serif",
+  mono: "ui-monospace, 'SF Mono', Menlo, Consolas, 'Cascadia Mono', 'Liberation Mono', 'Courier New', monospace",
+}
+const FONT_IDS = Object.keys(FONT_STACKS) as FontId[]
+const FONT_LABEL_KEYS: Record<FontId, string> = {
+  sans: 'settings.theme.fontSans',
+  serif: 'settings.theme.fontSerif',
+  kai: 'settings.theme.fontKai',
+  fangsong: 'settings.theme.fontFangsong',
+  round: 'settings.theme.fontRound',
+  mono: 'settings.theme.fontMono',
+}
 
 type Tokens = ThemeSettings['tokens']
 
@@ -176,13 +199,12 @@ export function ThemeSection() {
 
         {/* 版心 */}
         <Field label={t('settings.theme.widthLabel')}>
-          <Segmented
+          <SliderField
             value={theme.tokens.width ?? activeCard.width}
-            options={[
-              { value: 38, label: t('settings.theme.widthNarrow') },
-              { value: 46, label: t('settings.theme.widthMedium') },
-              { value: 60, label: t('settings.theme.widthWide') },
-            ]}
+            min={WIDTH_MIN}
+            max={WIDTH_MAX}
+            step={1}
+            suffix="rem"
             onChange={(v) => setTokens({ width: v })}
           />
         </Field>
@@ -191,23 +213,23 @@ export function ThemeSection() {
         <Field label={t('settings.theme.font')}>
           <Segmented
             value={theme.tokens.font ?? activeCard.font}
-            options={[
-              { value: 'sans', label: t('settings.theme.fontSans') },
-              { value: 'serif', label: t('settings.theme.fontSerif') },
-            ]}
-            onChange={(v) => setTokens({ font: v as 'sans' | 'serif' })}
+            options={FONT_IDS.map((id) => ({
+              value: id,
+              label: t(FONT_LABEL_KEYS[id]),
+              style: { fontFamily: FONT_STACKS[id] },
+            }))}
+            onChange={(v) => setTokens({ font: v })}
           />
         </Field>
 
         {/* 正文字号 */}
         <Field label={t('settings.theme.fontSizeLabel')}>
-          <Segmented
-            value={theme.tokens.fontSize ?? 16}
-            options={[
-              { value: 15, label: t('settings.theme.fontSizeSmall') },
-              { value: 16, label: t('settings.theme.fontSizeStandard') },
-              { value: 17, label: t('settings.theme.fontSizeLarge') },
-            ]}
+          <SliderField
+            value={theme.tokens.fontSize ?? activeCard.fontSize}
+            min={FONTSIZE_MIN}
+            max={FONTSIZE_MAX}
+            step={FONTSIZE_STEP}
+            suffix="px"
             onChange={(v) => setTokens({ fontSize: v })}
           />
         </Field>
@@ -247,15 +269,16 @@ function Segmented<T extends string | number>({
   onChange,
 }: {
   value: T
-  options: { value: T; label: string }[]
+  options: { value: T; label: string; style?: React.CSSProperties }[]
   onChange: (v: T) => void
 }) {
   return (
     <div className="flex flex-wrap gap-1 rounded-xl border border-line bg-surface p-1">
-      {options.map(({ value: v, label }) => (
+      {options.map(({ value: v, label, style }) => (
         <button
           key={String(v)}
           onClick={() => onChange(v)}
+          style={style}
           className={cn(
             'flex-1 cursor-pointer whitespace-nowrap rounded-lg px-3 py-1.5 text-[13px] transition-colors',
             value === v ? 'bg-accent-soft font-medium text-accent' : 'text-muted hover:bg-surface2 hover:text-text',
@@ -264,6 +287,41 @@ function Segmented<T extends string | number>({
           {label}
         </button>
       ))}
+    </div>
+  )
+}
+
+/** 数值滑块：原生 range（accent-color 跟随主题色）+ 右侧当前值 */
+function SliderField({
+  value,
+  min,
+  max,
+  step,
+  suffix,
+  onChange,
+}: {
+  value: number
+  min: number
+  max: number
+  step: number
+  suffix: string
+  onChange: (v: number) => void
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="min-w-0 flex-1 cursor-pointer accent-accent"
+      />
+      <span className="w-14 shrink-0 text-right text-[13px] text-muted tabular-nums">
+        {value}
+        {suffix}
+      </span>
     </div>
   )
 }
@@ -314,17 +372,15 @@ function ThemePreview({ tokens, device }: { tokens: Tokens & { id: string }; dev
   const accent = tokens.accent ?? card.accent
   const radius = tokens.radius ?? card.radius
   const width = device === 'mobile' ? 320 : (tokens.width ?? card.width) * 8
-  const serif = (tokens.font ?? card.font) === 'serif'
-  const fontSize = tokens.fontSize ?? 16
+  const fontId = tokens.font ?? card.font
+  const fontSize = tokens.fontSize ?? card.fontSize
   const dark = card.dark
   const bg = dark ? '#101418' : card.id === 'classic' ? '#faf8f4' : '#f7f7f9'
   const surface = dark ? '#181d22' : '#ffffff'
   const text = dark ? '#e8ebee' : '#1b1c1f'
   const muted = dark ? '#8b93a3' : '#8a8f99'
   const line = dark ? '#232a31' : '#e8e8ec'
-  const fontFamily = serif
-    ? "'Songti SC', Georgia, 'Noto Serif SC', serif"
-    : "-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Noto Sans SC', sans-serif"
+  const fontFamily = FONT_STACKS[fontId]
 
   return (
     <div
@@ -349,7 +405,7 @@ function ThemePreview({ tokens, device }: { tokens: Tokens & { id: string }; dev
         <p className="m-0 text-[11px]" style={{ color: muted }}>
           2026/09/19 · 5 分钟阅读
         </p>
-        <h3 className="mb-1.5 mt-1 text-[1.25em] font-semibold" style={{ letterSpacing: serif ? 0 : '-0.01em' }}>
+        <h3 className="mb-1.5 mt-1 text-[1.25em] font-semibold" style={{ letterSpacing: fontId === 'sans' ? '-0.01em' : 0 }}>
           如何用 Workers 搭博客
         </h3>
         <p className="my-2 text-[0.92em]" style={{ color: muted }}>

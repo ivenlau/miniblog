@@ -4,8 +4,11 @@ export type NavItem = { label: string; href: string }
 /** 站点信息（Admin 站点设置） */
 export type SiteInfo = { name: string; description: string; footer: string; nav?: NavItem[] }
 
+/** 正文字体（六种系统字体栈，零网络加载） */
+export type FontId = 'sans' | 'serif' | 'kai' | 'fangsong' | 'round' | 'mono'
+
 /** 主题 Design Tokens（用户可在 Admin 覆盖） */
-export type ThemeTokens = { accent: string; radius: number; width: number; font: 'sans' | 'serif'; fontSize: number }
+export type ThemeTokens = { accent: string; radius: number; width: number; font: FontId; fontSize: number }
 export type ThemeContext = {
   site: SiteInfo
   title: string
@@ -27,8 +30,17 @@ export type BuiltinTheme = {
   render(ctx: ThemeContext, body: any): any
 }
 
-const SANS = "-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', sans-serif"
-const SERIF = "'Songti SC', Georgia, 'Noto Serif SC', serif"
+const FONT_IDS: FontId[] = ['sans', 'serif', 'kai', 'fangsong', 'round', 'mono']
+
+/** 六种系统字体栈。改动时需逐字同步 admin/src/pages/settings/ThemeSection.tsx 的手写副本 */
+const FONT_STACKS: Record<FontId, string> = {
+  sans: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', 'Noto Sans CJK SC', 'Microsoft YaHei', 'WenQuanYi Micro Hei', sans-serif",
+  serif: "'Songti SC', 'STSong', 'SimSun', Georgia, 'Noto Serif SC', 'Noto Serif CJK SC', serif",
+  kai: "'Kaiti SC', 'STKaiti', 'KaiTi', 'BiauKai', 'AR PL UKai CN', 'AR PL UKai TW', 'Noto Serif CJK SC', serif",
+  fangsong: "'Fangsong SC', 'STFangsong', 'FangSong', 'FangSong_GB2312', 'Noto Serif CJK SC', serif",
+  round: "'Yuanti SC', 'Yuanti TC', 'Hiragino Maru Gothic ProN', 'YouYuan', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', sans-serif",
+  mono: "ui-monospace, 'SF Mono', Menlo, Consolas, 'Cascadia Mono', 'Liberation Mono', 'Courier New', monospace",
+}
 
 /** 站点图标：圆角方块 + 笔与书写线（与 Admin Logo / favicon 同源） */
 export const SITE_ICON_SVG =
@@ -52,15 +64,20 @@ export function SiteIcon({ size = 22 }: { size?: number }) {
 const BACK_TO_TOP_JS =
   '(function(){var b=document.getElementById("mb-top");if(!b)return;if(document.getElementById("mb-fav-btn"))b.classList.add("has-fav");var f=function(){b.classList.toggle("on",window.scrollY>320)};window.addEventListener("scroll",f,{passive:true});f();b.addEventListener("click",function(){window.scrollTo({top:0,behavior:"smooth"})})})()'
 
+/** 移动端下滑自动收起页头导航/搜索、上滑恢复（零依赖内联脚本；视觉效果仅 ≤640px 生效） */
+const HEADER_COLLAPSE_JS =
+  '(function(){var h=document.querySelector("header.site");if(!h)return;var last=window.scrollY,acc=0;window.addEventListener("scroll",function(){var y=window.scrollY,d=y-last;last=y;if(y<80||h.querySelector("input:focus")){h.classList.remove("mb-compact");acc=0;return}if(d&&d>0!==acc>0)acc=0;acc+=d;if(acc>48)h.classList.add("mb-compact");else if(acc<-24)h.classList.remove("mb-compact")},{passive:true})})()'
+
 const BASE_CSS = (t: ThemeTokens, extra: string) => `
 :root{--mb-accent:${t.accent};--mb-radius:${t.radius}px;--mb-width:${t.width}rem}
 *{box-sizing:border-box}
 body{margin:0;background:#f7f7f9;color:#1b1c1f;line-height:1.75;
-  font-family:${t.font === 'serif' ? SERIF : SANS}}
+  font-family:${FONT_STACKS[t.font] ?? FONT_STACKS.sans}}
 a{color:inherit;text-decoration:none}a:hover{color:var(--mb-accent)}
 header.site{border-bottom:1px solid #e8e8ec;background:#ffffffcc;backdrop-filter:blur(8px);position:sticky;top:0;z-index:10}
 header.site .inner{max-width:var(--mb-width);margin:0 auto;padding:.9rem 1.25rem;display:flex;align-items:baseline;gap:.5rem 1.25rem;flex-wrap:wrap}
 header.site .brand{display:flex;align-items:baseline;gap:.75rem;min-width:0}
+header.site .brand-link{display:flex;align-items:center;gap:.45rem;font-weight:700;font-size:1.05rem}
 header.site .desc{color:#777;font-size:.85rem;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 nav.site-nav{display:flex;gap:1rem;margin-left:auto;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 nav.site-nav::-webkit-scrollbar{display:none}
@@ -83,12 +100,21 @@ h1,h2,h3{line-height:1.35}
 footer.site{max-width:var(--mb-width);margin:2rem auto 0;padding:1.25rem;color:#888;font-size:.85rem;border-top:1px solid #e8e8ec}
 @media (max-width:640px){
   header.site .desc{display:none}
-  nav.site-nav{margin-left:0;width:100%;order:3;padding-bottom:.25rem}
-  form.site-search{margin-left:0;width:100%;order:4;padding-bottom:.25rem}
+  header.site .inner{gap:0;padding:.6rem 1rem;transition:padding .25s ease}
+  header.site .brand-link{font-size:1.05rem;transition:font-size .25s ease}
+  header.site .brand-link svg{width:22px;height:22px;transition:width .25s ease,height .25s ease}
+  nav.site-nav{margin:.6rem 0 0;width:100%;order:3;max-height:2.2rem;overflow-y:hidden;opacity:1;visibility:visible;transition:max-height .28s ease,margin-top .28s ease,opacity .2s ease,visibility .28s ease}
+  form.site-search{margin:.6rem 0 0;width:100%;order:4;max-height:2.6rem;overflow:hidden;opacity:1;visibility:visible;transition:max-height .28s ease,margin-top .28s ease,opacity .2s ease,visibility .28s ease}
   form.site-search input{width:100%}
   main{padding:1.5rem 1rem 3rem}
   article h1{font-size:1.5rem}
   .page-title{font-size:1.25rem}
+  /* 下滑收起态（mb-compact 由 HEADER_COLLAPSE_JS 切换）：导航/搜索折叠、站名缩小，把空间留给内容 */
+  header.site.mb-compact .inner{padding:.4rem 1rem}
+  header.site.mb-compact .brand-link{font-size:.92rem}
+  header.site.mb-compact .brand-link svg{width:18px;height:18px}
+  header.site.mb-compact nav.site-nav,
+  header.site.mb-compact form.site-search{max-height:0;margin-top:0;opacity:0;visibility:hidden}
 }
 .post{margin-bottom:2.75rem}.post h2{margin:0 0 .3rem;font-size:1.3rem}
 .mb-pager{display:flex;justify-content:space-between;gap:1rem;margin-top:2.75rem}
@@ -139,14 +165,15 @@ async function shell(ctx: ThemeContext, extraCss: string, bodyCls: string, body:
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>{title}</title>
         <link rel="icon" type="image/svg+xml" href={SITE_ICON_DATA_URI} />
-        <style>{BASE_CSS(tokens, extraCss)}</style>
+        {/* style 是 raw text 元素：必须原样输出，否则字体栈中的引号会被实体转义成非法 CSS（font-family 整条失效） */}
+        <style dangerouslySetInnerHTML={{ __html: BASE_CSS(tokens, extraCss) }} />
         {ctx.headHtml ? <div dangerouslySetInnerHTML={{ __html: ctx.headHtml }} /> : null}
       </head>
       <body class={bodyCls}>
         <header class="site">
           <div class="inner">
             <div class="brand">
-              <a href="/" style={{ display: 'flex', alignItems: 'center', gap: '.45rem', fontWeight: 700, fontSize: '1.05rem' }}>
+              <a href="/" class="brand-link">
                 <SiteIcon size={22} />
                 {site.name}
               </a>
@@ -177,6 +204,8 @@ async function shell(ctx: ThemeContext, extraCss: string, bodyCls: string, body:
             <path d="m18 15-6-6-6 6" />
           </svg>
         </button>
+        {/* 下滑收起页头（移动端视觉） */}
+        <script dangerouslySetInnerHTML={{ __html: HEADER_COLLAPSE_JS }} />
         <script dangerouslySetInnerHTML={{ __html: BACK_TO_TOP_JS }} />
       </body>
     </html>
@@ -239,7 +268,19 @@ export function getBuiltinTheme(id: string): BuiltinTheme {
 
 export type ThemeConfig = { mode: 'builtin'; id: string; tokens: Partial<ThemeTokens> }
 
-/** 解析最终 tokens：用户覆盖值合并进主题默认值 */
+const clampTok = (v: unknown, fb: number, lo: number, hi: number, step = 1) => {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return fb
+  return Math.min(hi, Math.max(lo, Math.round(v / step) * step))
+}
+
+/** 解析最终 tokens：用户覆盖值合并进主题默认值，并做取值清洗（tokens 经 JSON 入库，防脏数据产出非法 CSS） */
 export function resolveTokens(theme: BuiltinTheme, userTokens: Partial<ThemeTokens> | undefined): ThemeTokens {
-  return { ...theme.defaultTokens, ...userTokens }
+  const u = (userTokens && typeof userTokens === 'object' ? userTokens : {}) as Partial<ThemeTokens>
+  return {
+    accent: typeof u.accent === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(u.accent) ? u.accent : theme.defaultTokens.accent,
+    radius: clampTok(u.radius, theme.defaultTokens.radius, 0, 32),
+    width: clampTok(u.width, theme.defaultTokens.width, 32, 128),
+    fontSize: clampTok(u.fontSize, theme.defaultTokens.fontSize, 12, 24, 0.5),
+    font: FONT_IDS.includes(u.font as FontId) ? (u.font as FontId) : theme.defaultTokens.font,
+  }
 }

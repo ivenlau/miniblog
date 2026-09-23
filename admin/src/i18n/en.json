@@ -249,13 +249,11 @@
       "radiusLarge": "Large",
       "radiusFull": "Round",
       "widthLabel": "Content width",
-      "widthNarrow": "Narrow",
-      "widthMedium": "Medium",
-      "widthWide": "Wide",
       "fontSizeLabel": "Body font size",
-      "fontSizeSmall": "Small",
-      "fontSizeStandard": "Standard",
-      "fontSizeLarge": "Large",
+      "fontKai": "Kaiti",
+      "fontFangsong": "Fangsong",
+      "fontRound": "Rounded",
+      "fontMono": "Monospace",
       "openSite": "Open site to see it live"
     },
     "appearance": {

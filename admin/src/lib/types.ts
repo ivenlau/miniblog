@@ -60,11 +60,14 @@ export type NavItem = { label: string; href: string }
 /** blog_settings.site */
 export type SiteSettings = { name: string; description: string; footer: string; nav?: NavItem[] }
 
+/** 正文字体（与 server/render/themes/registry.tsx 的 FontId 保持一致） */
+export type FontId = 'sans' | 'serif' | 'kai' | 'fangsong' | 'round' | 'mono'
+
 /** blog_settings.theme */
 export type ThemeSettings = {
   mode: 'builtin'
   id: string
-  tokens: { accent?: string; radius?: number; width?: number; font?: 'sans' | 'serif'; fontSize?: number }
+  tokens: { accent?: string; radius?: number; width?: number; font?: FontId; fontSize?: number }
 }
 
 /** blog_settings.plugins */
